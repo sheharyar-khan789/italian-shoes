@@ -28,13 +28,17 @@ Italian Shoes e-commerce platform. Vite + vanilla JavaScript in the browser, Fir
 | `shared/schemas/` | Zod validation schemas (products, variants, stock adjustments, checkout, coupons, shipping, settings). |
 | `functions/` | Cloud Functions. Deployed separately; only this folder is uploaded. |
 | `functions/index.js` | Exports every function; sets region (`asia-south1`) and instance limits. |
-| `functions/lib/` | Admin SDK setup, safe errors, secret-free logging, input validation. |
+| `functions/lib/` | Admin SDK setup, safe errors, secret-free logging, input validation, rate limiting, and **`callable.js` — the only way to create a callable function** (App Check, sign-in, permission, rate limit, validation, safe errors in one place). |
 | `functions/http/` | HTTP endpoints (currently `healthCheck`). |
 | `functions/migrations/` | Versioned, run-once data migrations and their runner. |
 | `functions/scripts/` | `sync-shared.mjs` (copies `/shared` in before deploy) and `migrate.mjs`. |
 | `functions/services/`, `callable/`, `triggers/`, `scheduled/` *(planned, Phase 3+)* | Business logic and the functions that call it. |
 | `functions/shared/` | **Generated** copy of `/shared`. Never edit; never commit. |
 | `scripts/emulators.mjs` | Starts the emulators (or runs a command against them) with the right Java settings for this machine. |
+| `scripts/check-secrets.mjs`, `.githooks/` | Secret scanner, run before every commit and in CI. |
+| `.github/` | CI workflow (secrets, lint, typecheck, tests, build, audit, emulator tests) and Dependabot. |
+| `vite.config.js` | Production build settings; `npm run preview` serves the build with the real security headers. |
+| `SECURITY.md` | Everything security-related, including the owner's console checklist. |
 | `firebase.json`, `.firebaserc` | Hosting, functions, rules, emulator configuration; default project `italianshoes`. |
 | `firestore.rules`, `storage.rules` | Security rules. Deny by default. |
 | `firestore.indexes.json` | Composite indexes, added with each feature that needs one. |
@@ -125,7 +129,8 @@ together if it doesn't.
 | `npm run typecheck` | JSDoc type checking (`tsc`) |
 | `npm run lint` | ESLint |
 | `npm run build` | Production build |
-| `npm run check` | lint + typecheck + unit tests + build |
+| `npm run secrets` | Secret scan |
+| `npm run check` | secrets + lint + typecheck + unit tests + build |
 
 ## 9. Secrets
 

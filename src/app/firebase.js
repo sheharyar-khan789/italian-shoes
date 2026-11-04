@@ -23,6 +23,15 @@ export function firebase() {
     ]);
     const config = usingEmulators ? { ...FIREBASE_WEB_CONFIG, projectId: EMULATOR_PROJECT_ID } : FIREBASE_WEB_CONFIG;
     const app = initializeApp(config);
+
+    // App Check proves requests come from this website, not a script. Enabled when a reCAPTCHA
+    // Enterprise site key is configured (VITE_APPCHECK_SITE_KEY — public, not a secret). See SECURITY.md.
+    const appCheckKey = import.meta.env.VITE_APPCHECK_SITE_KEY;
+    if (appCheckKey && !usingEmulators) {
+      const { initializeAppCheck, ReCaptchaEnterpriseProvider } = await import("firebase/app-check");
+      initializeAppCheck(app, { provider: new ReCaptchaEnterpriseProvider(appCheckKey), isTokenAutoRefreshEnabled: true });
+    }
+
     const auth = authMod.getAuth(app);
     const db = fsMod.getFirestore(app);
     const functions = fnMod.getFunctions(app, FUNCTIONS_REGION);

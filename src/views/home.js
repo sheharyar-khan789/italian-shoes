@@ -3,7 +3,7 @@ import { catalogReady, getCatalog } from "../app/state.js";
 import { queryProducts } from "../lib/shop.js";
 import { esc } from "../lib/format.js";
 import { illustration } from "../ui/illustration.js";
-import { grid, bindCardSwatches, arrow, placeholderNote } from "../ui/components.js";
+import { grid, bindCardSwatches, placeholderNote } from "../ui/components.js";
 import { STORE } from "../config.js";
 
 const CATEGORY_ART = {
@@ -75,7 +75,7 @@ export default async function home({ outlet }) {
     <div class="story__text">
       <p class="kicker"><span class="kicker__line"></span>The Store</p>
       <h2 class="section__title" id="story-title">${esc(STORE.name || "The store")}, <em>${esc(STORE.contact.address.split(",").pop().trim() || "in the owner’s words")}.</em></h2>
-      ${STORE.contact.address ? `<p class="story__visit">Visit us on <strong>${esc(STORE.contact.address)}</strong>${STORE.contact.phone ? ` · <a class="text-link" href="tel:+92${esc(STORE.contact.phone.replace(/\D/g, "").replace(/^0/, ""))}">${esc(STORE.contact.phone)}</a>` : ""}${STORE.contact.instagram ? ` · <a class="text-link" href="${esc(STORE.contact.instagram)}" target="_blank" rel="noopener">Instagram</a>` : ""}</p>` : ""}
+      ${STORE.contact.address ? `<p class="story__visit">Visit us on <strong>${esc(STORE.contact.address)}</strong>${STORE.contact.phone ? ` · <a class="text-link" href="tel:+92${esc(STORE.contact.phone.replace(/\D/g, "").replace(/^0/, ""))}">${esc(STORE.contact.phone)}</a>` : ""}${STORE.contact.instagram ? ` · <a class="text-link" href="${esc(STORE.contact.instagram)}" target="_blank" rel="noopener noreferrer">Instagram</a>` : ""}</p>` : ""}
       ${placeholderNote("The store’s own story — how it began and how it chooses its shoes — will go here, written with the owner rather than invented.")}
       <a class="btn btn--ghost" href="/about">About the store</a>
     </div>

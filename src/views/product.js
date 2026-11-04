@@ -21,7 +21,7 @@ function askLink(product) {
   const wa = normalizeWhatsAppNumber(STORE.whatsappNumber);
   if (wa) {
     const text = `Hi, I have a question about ${product.name} (${product.id}).`;
-    return `<a class="ask" href="https://wa.me/${wa}?text=${encodeURIComponent(text)}" target="_blank" rel="noopener">Ask a question on WhatsApp</a>`;
+    return `<a class="ask" href="https://wa.me/${wa}?text=${encodeURIComponent(text)}" target="_blank" rel="noopener noreferrer">Ask a question on WhatsApp</a>`;
   }
   const phone = STORE.contact.phone;
   if (!phone) return "";

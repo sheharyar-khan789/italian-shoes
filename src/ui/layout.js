@@ -278,7 +278,7 @@ export function applyStoreConfig() {
     c.email && `<a href="mailto:${esc(c.email)}">${esc(c.email)}</a>`,
     c.address && `<p>${esc(c.address)}</p>`,
     c.hours && `<p>${esc(c.hours)}</p>`,
-    c.instagram && `<a href="${esc(c.instagram)}" target="_blank" rel="noopener">Instagram</a>`,
+    c.instagram && `<a href="${esc(c.instagram)}" target="_blank" rel="noopener noreferrer">Instagram</a>`,
   ].filter(Boolean);
   contact.insertAdjacentHTML(
     "beforeend",
@@ -303,7 +303,7 @@ export function applyStoreConfig() {
     fab.href = wa ? `https://wa.me/${wa}` : `tel:+92${phoneDigits}`;
     if (wa) {
       fab.target = "_blank";
-      fab.rel = "noopener";
+      fab.rel = "noopener noreferrer";
     }
     fab.setAttribute("aria-label", wa ? "Message the store on WhatsApp" : `Call the store, ${c.phone}`);
     fab.innerHTML = wa

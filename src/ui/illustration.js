@@ -212,6 +212,8 @@ export function illustration(style, color, { label = "", flip = false, className
 /**
  * Product media: real photo when supplied (lazy, with a graceful fallback to the illustration
  * if the file fails to load), otherwise the illustration.
+ * No inline event handlers (they would be blocked by the Content Security Policy);
+ * load/error are handled once, page-wide, by bindMediaEvents().
  */
 export function productMedia(product, color, { index = 0, eager = false, label } = {}) {
   const alt = label ?? `${product.name} in ${color.name}`;
@@ -219,9 +221,37 @@ export function productMedia(product, color, { index = 0, eager = false, label }
   const art = illustration(product.style, color, { label: alt, flip: index % 2 === 1 });
   if (!src) return `<div class="media media--art">${art}</div>`;
   return `<div class="media media--photo is-loading">
-    <img src="${esc(src)}" alt="${esc(alt)}" ${eager ? 'fetchpriority="high"' : 'loading="lazy"'} decoding="async"
-      onload="this.parentNode.classList.remove('is-loading')"
-      onerror="this.parentNode.classList.replace('media--photo','media--art');this.parentNode.classList.remove('is-loading');this.replaceWith(document.createRange().createContextualFragment(this.dataset.fallback))"
-      data-fallback="${esc(art)}">
+    <img src="${esc(src)}" alt="${esc(alt)}" ${eager ? 'fetchpriority="high"' : 'loading="lazy"'} decoding="async" data-media>
+    <template data-media-fallback>${art}</template>
   </div>`;
+}
+
+/**
+ * One capturing listener for every product photo on the page (load/error don't bubble, so
+ * capture is required). On failure the photo is swapped for its illustration.
+ */
+export function bindMediaEvents(root = document) {
+  root.addEventListener(
+    "load",
+    (e) => {
+      const img = e.target;
+      if (img instanceof HTMLImageElement && img.hasAttribute("data-media")) img.parentElement?.classList.remove("is-loading");
+    },
+    true,
+  );
+  root.addEventListener(
+    "error",
+    (e) => {
+      const img = e.target;
+      if (!(img instanceof HTMLImageElement) || !img.hasAttribute("data-media")) return;
+      const box = img.parentElement;
+      const fallback = box?.querySelector("template[data-media-fallback]");
+      if (!box || !(fallback instanceof HTMLTemplateElement)) return;
+      box.classList.replace("media--photo", "media--art");
+      box.classList.remove("is-loading");
+      img.replaceWith(fallback.content.cloneNode(true));
+      fallback.remove();
+    },
+    true,
+  );
 }

@@ -15,7 +15,7 @@ export default [
     },
   },
   // Browser code
-  { files: ["src/**/*.js"], languageOptions: { globals: globals.browser } },
+  { files: ["src/**/*.js", "public/**/*.js"], languageOptions: { globals: globals.browser } },
   // Shared code runs in both
   { files: ["shared/**/*.js"], languageOptions: { globals: { ...globals.browser, ...globals.node } } },
   // Server, scripts and tests

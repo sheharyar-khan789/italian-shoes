@@ -265,7 +265,7 @@ export default async function checkout({ outlet }) {
           <p>WhatsApp ${win ? "has opened" : "should open"} with your order <strong>${esc(orderRef)}</strong> ready to send.
              <strong>Your order isn’t placed until you press Send in WhatsApp.</strong>
              The store will reply to confirm availability, delivery charges and acceptance.</p>
-          <p>WhatsApp didn’t open? <a class="text-link" href="${esc(url)}" target="_blank" rel="noopener">Open WhatsApp</a>, or copy the message below and send it to the store yourself.</p>
+          <p>WhatsApp didn’t open? <a class="text-link" href="${esc(url)}" target="_blank" rel="noopener noreferrer">Open WhatsApp</a>, or copy the message below and send it to the store yourself.</p>
           ${messageBlock}
           <p class="result__done">Already sent it? <button type="button" class="text-btn" data-sent>Empty my bag</button></p>
         </div>`;

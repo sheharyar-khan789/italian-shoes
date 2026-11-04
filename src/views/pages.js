@@ -62,12 +62,12 @@ const contactRows = () => {
   const row = (label, value) => `<div><dt>${label}</dt><dd>${value || TBC}</dd></div>`;
   return `
   <dl class="info-list">
-    ${row("WhatsApp", wa ? `<a class="text-link" href="https://wa.me/${wa}" target="_blank" rel="noopener">Message the store</a>` : "")}
+    ${row("WhatsApp", wa ? `<a class="text-link" href="https://wa.me/${wa}" target="_blank" rel="noopener noreferrer">Message the store</a>` : "")}
     ${row("Phone", c.phone && `<a class="text-link" href="tel:${esc(c.phone.replace(/[^\d+]/g, ""))}">${esc(c.phone)}</a>`)}
     ${row("Email", c.email && `<a class="text-link" href="mailto:${esc(c.email)}">${esc(c.email)}</a>`)}
     ${row("Address", esc(c.address))}
     ${row("Hours", esc(c.hours))}
-    ${row("Instagram", c.instagram && `<a class="text-link" href="${esc(c.instagram)}" target="_blank" rel="noopener">Instagram</a>`)}
+    ${row("Instagram", c.instagram && `<a class="text-link" href="${esc(c.instagram)}" target="_blank" rel="noopener noreferrer">Instagram</a>`)}
   </dl>`;
 };
 

@@ -1,0 +1,3 @@
+#!/bin/sh
+# Blocks commits that contain secrets. Installed with: git config core.hooksPath .githooks
+node scripts/check-secrets.mjs --staged

@@ -1,6 +1,7 @@
 import { route, startRouter } from "./app/router.js";
 import { catalogReady } from "./app/state.js";
 import { applyStoreConfig } from "./ui/layout.js";
+import { bindMediaEvents } from "./ui/illustration.js";
 import home from "./views/home.js";
 import shop from "./views/shop.js";
 import product from "./views/product.js";
@@ -23,5 +24,6 @@ const reveal = () => document.body.classList.add("is-revealed");
 requestAnimationFrame(reveal);
 setTimeout(reveal, 250); // rAF can be throttled in background tabs
 
+bindMediaEvents();
 catalogReady.then(applyStoreConfig);
 startRouter();

@@ -1,0 +1,17 @@
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule: { interval: weekly }
+    open-pull-requests-limit: 5
+    groups:
+      firebase: { patterns: ["firebase*", "@firebase/*"] }
+  - package-ecosystem: npm
+    directory: /functions
+    schedule: { interval: weekly }
+    open-pull-requests-limit: 5
+    groups:
+      firebase: { patterns: ["firebase*"] }
+  - package-ecosystem: github-actions
+    directory: /
+    schedule: { interval: monthly }

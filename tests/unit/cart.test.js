@@ -32,7 +32,7 @@ test("invalid additions are ignored", () => {
 });
 
 test("setQty clamps to 1..max and removeItem deletes", () => {
-  let lines = addItem([], { productId: low.id, colorId: "beach", size: 41 });
+  const lines = addItem([], { productId: low.id, colorId: "beach", size: 41 });
   const key = lines[0].key;
   assert.equal(setQty(lines, key, 0)[0].qty, 1);
   assert.equal(setQty(lines, key, "abc")[0].qty, 1);
