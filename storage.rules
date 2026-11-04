@@ -1,0 +1,14 @@
+rules_version = '2';
+
+// Cloud Storage security rules. DENY BY DEFAULT.
+// Product images are opened in Phase 5: staff with products.write may upload images
+// (type and size checked here AND re-checked by a Cloud Function), everyone may read
+// the processed versions.
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

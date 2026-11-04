@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#12100e" />
+    <title>Italian Shoes — Sarai Alamgir</title>
+    <meta name="description" content="Italian Shoes, Main GT Road, Sarai Alamgir — sneakers, formal, casual, women's and kids' shoes. Order online, confirmed on WhatsApp." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&family=Manrope:wght@400;500;600&display=swap"
+    />
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
+    <link rel="stylesheet" href="/src/style.css" />
+    <link rel="stylesheet" href="/src/store.css" />
+    <script>document.documentElement.classList.add("js");</script>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+    <p class="announce" data-announce hidden></p>
+
+    <header class="site-header" data-reveal>
+      <a class="brand" href="/" aria-label="Home">
+        <span class="brand__mark" aria-hidden="true"></span>
+        <span class="brand__word">Brand</span>
+      </a>
+
+      <nav class="site-nav" id="site-nav" aria-label="Primary">
+        <ul>
+          <li><a href="/shop">Shop All</a></li>
+          <li><a href="/shop/sneakers">Sneakers</a></li>
+          <li><a href="/shop/formal">Formal</a></li>
+          <li><a href="/shop/casual">Casual</a></li>
+          <li><a href="/shop/sandals">Sandals</a></li>
+          <li><a href="/shop/women">Women</a></li>
+          <li><a href="/shop/kids">Kids</a></li>
+        </ul>
+        <ul class="site-nav__secondary">
+          <li><a href="/about">About</a></li>
+          <li><a href="/contact">Contact</a></li>
+          <li><a href="/size-guide">Size Guide</a></li>
+        </ul>
+      </nav>
+
+      <div class="site-utils">
+        <button class="util util--text" type="button" data-open-search>Search</button>
+        <button class="util util--icon" type="button" data-open-search aria-label="Search">
+          <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+            <circle cx="10.5" cy="10.5" r="6" fill="none" stroke="currentColor" stroke-width="1.2" />
+            <path d="M15 15l5 5" stroke="currentColor" stroke-width="1.2" />
+          </svg>
+        </button>
+        <a class="util bag-link" href="/cart" data-open-cart aria-label="Shopping bag, 0 items">
+          <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+            <path d="M5.5 8.5h13l-1 11.5h-11z" fill="none" stroke="currentColor" stroke-width="1.2" />
+            <path d="M9 8.5V7a3 3 0 0 1 6 0v1.5" fill="none" stroke="currentColor" stroke-width="1.2" />
+          </svg>
+          <span class="bag-count" data-cart-count hidden>0</span>
+        </a>
+        <button class="menu-toggle" type="button" aria-expanded="false" aria-controls="site-nav">
+          <span class="menu-toggle__label">Menu</span>
+          <span class="menu-toggle__bars" aria-hidden="true"><i></i><i></i></span>
+        </button>
+      </div>
+    </header>
+
+    <main id="main" tabindex="-1"></main>
+
+    <footer class="site-footer">
+      <div class="footer__top">
+        <div class="footer__brand">
+          <a class="brand" href="/" aria-label="Home">
+            <span class="brand__mark" aria-hidden="true"></span>
+            <span class="brand__word">Brand</span>
+          </a>
+          <p class="footer__urdu" lang="ur" dir="rtl" data-name-urdu></p>
+          <p class="footer__line">Main GT Road, Sarai Alamgir.<br />Shoes for men, women and children — ordered simply, confirmed personally.</p>
+        </div>
+        <nav class="footer__col" aria-label="Shop">
+          <h2>Shop</h2>
+          <a href="/shop">Shop All</a>
+          <a href="/shop?sort=newest">New In</a>
+          <a href="/shop?avail=sale">Sale</a>
+          <a href="/shop/sneakers">Sneakers</a>
+          <a href="/shop/casual">Casual</a>
+          <a href="/shop/formal">Formal</a>
+          <a href="/shop/boots">Boots</a>
+          <a href="/shop/sandals">Sandals</a>
+          <a href="/shop/women">Women</a>
+          <a href="/shop/kids">Kids &amp; School</a>
+        </nav>
+        <nav class="footer__col" aria-label="Help">
+          <h2>Help</h2>
+          <a href="/size-guide">Size Guide</a>
+          <a href="/shipping">Shipping &amp; Delivery</a>
+          <a href="/returns">Returns &amp; Exchanges</a>
+          <a href="/faq">FAQs</a>
+          <a href="/contact">Contact</a>
+        </nav>
+        <nav class="footer__col" aria-label="Store">
+          <h2>Store</h2>
+          <a href="/about">About</a>
+          <a href="/privacy">Privacy Policy</a>
+          <a href="/terms">Terms &amp; Conditions</a>
+        </nav>
+        <div class="footer__col" data-footer-contact>
+          <h2>Contact</h2>
+        </div>
+      </div>
+      <div class="footer__bottom">
+        <p data-demo-note></p>
+        <p>
+          3D model: “Materials Variants Shoe” © Shopify,
+          <a href="https://creativecommons.org/licenses/by/4.0/" rel="noopener" target="_blank">CC BY 4.0</a>.
+        </p>
+      </div>
+    </footer>
+
+    <!-- Cart drawer -->
+    <dialog class="drawer drawer--right" id="cart-drawer" aria-labelledby="cart-drawer-title">
+      <div class="drawer__head">
+        <h2 id="cart-drawer-title">Your Bag</h2>
+        <button class="icon-btn" type="button" data-close aria-label="Close bag">
+          <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="1.2" /></svg>
+        </button>
+      </div>
+      <div class="drawer__body" data-cart-drawer-body></div>
+    </dialog>
+
+    <!-- Search -->
+    <dialog class="drawer drawer--top" id="search-dialog" aria-label="Search">
+      <form class="search-form" action="/search" role="search">
+        <label class="visually-hidden" for="search-input">Search footwear</label>
+        <input id="search-input" name="q" type="search" placeholder="Search footwear" autocomplete="off" enterkeyhint="search" />
+        <button class="icon-btn" type="button" data-close aria-label="Close search">
+          <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="1.2" /></svg>
+        </button>
+      </form>
+      <div class="search-suggest" data-search-suggest></div>
+    </dialog>
+
+    <!-- Quick add / size guide / filters render into this generic sheet -->
+    <dialog class="drawer drawer--sheet" id="sheet" aria-labelledby="sheet-title">
+      <div class="drawer__head">
+        <h2 id="sheet-title"></h2>
+        <button class="icon-btn" type="button" data-close aria-label="Close">
+          <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="1.2" /></svg>
+        </button>
+      </div>
+      <div class="drawer__body" data-sheet-body></div>
+    </dialog>
+
+    <a class="fab" data-fab hidden></a>
+
+    <div class="toast" role="status" aria-live="polite"></div>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

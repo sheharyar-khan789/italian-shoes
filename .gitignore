@@ -1,0 +1,21 @@
+node_modules
+dist
+
+# Secrets — never commit
+.env
+.env.*
+!.env.example
+*-firebase-adminsdk-*.json
+service-account*.json
+
+# Firebase
+.firebase/
+firebase-debug.log*
+firestore-debug.log*
+ui-debug.log*
+emulator-data/
+
+# Functions
+functions/node_modules
+# generated copy of /shared (see functions/scripts/sync-shared.mjs)
+functions/shared

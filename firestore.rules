@@ -1,0 +1,34 @@
+rules_version = '2';
+
+// Cloud Firestore security rules.
+//
+// Principle: DENY BY DEFAULT. A path is readable or writable only if a rule below allows it.
+// Each phase opens exactly the paths it needs, with tests in tests/rules/.
+//
+// Cloud Functions use the Admin SDK, which bypasses these rules by design; that is where
+// prices, stock, orders and payments are written. Clients can never write those directly.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Helpers (used from Phase 3 onwards) ─────────────────────────────────
+    function signedIn() {
+      return request.auth != null;
+    }
+    function isSelf(uid) {
+      return signedIn() && request.auth.uid == uid;
+    }
+    // Staff permissions are written into Auth custom claims by a Cloud Function.
+    function can(permission) {
+      return signedIn()
+        && request.auth.token.staff == true
+        && request.auth.token.perms is list
+        && permission in request.auth.token.perms;
+    }
+
+    // ── Default: nothing is allowed ──────────────────────────────────────────
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
