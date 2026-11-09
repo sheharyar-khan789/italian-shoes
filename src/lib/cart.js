@@ -1,15 +1,18 @@
 /**
  * Cart logic. Pure functions + a small persisted store.
  *
- * A cart line is identified by product + colour + size, so the same shoe in two sizes or two
+ * A cart line is identified by product + colour + size (all database ids), so the same shoe in two sizes or two
  * colours stays as separate lines. Only ids and quantities are stored — prices, names and stock
  * are always re-read from the catalogue, so a stale browser can never show an outdated price.
  */
 
 export const MAX_QTY_PER_LINE = 10;
-const STORAGE_KEY = "footwear.cart.v1";
+const STORAGE_KEY = "footwear.cart.v2";
 
-export const lineKey = (productId, colorId, size) => `${productId}|${colorId}|${size}`;
+export const lineKey = (productId, colorId, sizeId) => `${productId}|${colorId}|${sizeId}`;
+
+/** The variant id the server uses (see functions/services/products.js variantKey). */
+export const variantIdOf = (line) => `${line.colorId}_${line.sizeId}`;
 
 export const findVariant = (products, productId, colorId) => {
   const product = products.find((p) => p.id === productId);
@@ -18,19 +21,19 @@ export const findVariant = (products, productId, colorId) => {
 };
 
 /** Stock for a size, capped at the per-line maximum. */
-export const maxQtyFor = (color, size) => Math.min(MAX_QTY_PER_LINE, Math.max(0, color.stock?.[size] ?? 0));
+export const maxQtyFor = (color, sizeId) => Math.min(MAX_QTY_PER_LINE, Math.max(0, color.stock?.[sizeId] ?? 0));
 
 const toInt = (n) => (Number.isFinite(Number(n)) ? Math.trunc(Number(n)) : 0);
 
-export function addItem(lines, { productId, colorId, size, qty = 1 }, maxQty = MAX_QTY_PER_LINE) {
+export function addItem(lines, { productId, colorId, sizeId, qty = 1 }, maxQty = MAX_QTY_PER_LINE) {
   const amount = toInt(qty);
-  if (!productId || !colorId || size == null || amount < 1 || maxQty < 1) return lines;
-  const key = lineKey(productId, colorId, size);
+  if (!productId || !colorId || !sizeId || amount < 1 || maxQty < 1) return lines;
+  const key = lineKey(productId, colorId, sizeId);
   const existing = lines.find((l) => l.key === key);
   if (existing) {
     return lines.map((l) => (l.key === key ? { ...l, qty: Math.min(maxQty, l.qty + amount) } : l));
   }
-  return [...lines, { key, productId, colorId, size: Number(size), qty: Math.min(maxQty, amount) }];
+  return [...lines, { key, productId, colorId, sizeId: String(sizeId), qty: Math.min(maxQty, amount) }];
 }
 
 /** Quantity is clamped to 1…max; use removeItem to delete a line. */
@@ -45,8 +48,10 @@ export const removeItem = (lines, key) => lines.filter((l) => l.key !== key);
 export function resolveLines(lines, products) {
   return lines.flatMap((line) => {
     const v = findVariant(products, line.productId, line.colorId);
-    if (!v || !v.product.sizes.includes(line.size)) return [];
-    const max = maxQtyFor(v.color, line.size);
+    const sizeLabel = v?.product.sizes.find((s) => s.id === line.sizeId)?.label;
+    if (!v || sizeLabel == null || !(line.sizeId in (v.color.stock ?? {}))) return [];
+    const unit = v.color.prices?.[line.sizeId] ?? v.product.price;
+    const max = maxQtyFor(v.color, line.sizeId);
     const qty = Math.min(line.qty, Math.max(max, 1));
     return [
       {
@@ -54,8 +59,10 @@ export function resolveLines(lines, products) {
         qty,
         product: v.product,
         color: v.color,
-        unitPrice: v.product.price,
-        lineTotal: v.product.price * qty,
+        sizeLabel,
+        unitPrice: unit,
+        regularPrice: v.color.regularPrices?.[line.sizeId] ?? unit,
+        lineTotal: unit * qty,
         maxQty: max,
         available: max >= qty && max > 0,
       },
@@ -63,23 +70,22 @@ export function resolveLines(lines, products) {
   });
 }
 
-/** deliveryFee: number (PKR) or null when not yet confirmed — then total is null. */
-export function cartTotals(resolved, deliveryFee = null) {
+/** Delivery is worked out by the server at checkout, so the bag shows the subtotal only. */
+export function cartTotals(resolved) {
   const subtotal = resolved.reduce((sum, l) => sum + l.lineTotal, 0);
   const itemCount = resolved.reduce((sum, l) => sum + l.qty, 0);
-  const fee = typeof deliveryFee === "number" && deliveryFee >= 0 ? deliveryFee : null;
-  return { itemCount, subtotal, delivery: fee, total: fee === null ? null : subtotal + fee };
+  return { itemCount, subtotal };
 }
 
 function sanitize(raw) {
   if (!Array.isArray(raw)) return [];
   return raw
-    .filter((l) => l && typeof l.productId === "string" && typeof l.colorId === "string" && Number.isFinite(Number(l.size)))
+    .filter((l) => l && typeof l.productId === "string" && typeof l.colorId === "string" && typeof l.sizeId === "string" && l.sizeId)
     .map((l) => ({
-      key: lineKey(l.productId, l.colorId, Number(l.size)),
+      key: lineKey(l.productId, l.colorId, l.sizeId),
       productId: l.productId,
       colorId: l.colorId,
-      size: Number(l.size),
+      sizeId: l.sizeId,
       qty: Math.min(MAX_QTY_PER_LINE, Math.max(1, toInt(l.qty))),
     }));
 }
@@ -104,7 +110,7 @@ export function createCartStore(storage = globalThis.localStorage) {
     try {
       storage?.setItem(
         STORAGE_KEY,
-        JSON.stringify({ v: 1, lines: lines.map(({ productId, colorId, size, qty }) => ({ productId, colorId, size, qty })) }),
+        JSON.stringify({ v: 1, lines: lines.map(({ productId, colorId, sizeId, qty }) => ({ productId, colorId, sizeId, qty })) }),
       );
     } catch {
       /* storage full or blocked: the cart still works for this page view */

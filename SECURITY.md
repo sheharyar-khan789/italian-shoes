@@ -36,6 +36,21 @@ owner must switch on in the Firebase / Google Cloud / GitHub consoles (code can'
 | Prices, stock, orders, payments and roles can be written **only** by Cloud Functions | rules + plan |
 | Every callable function goes through `secureCallable`: App Check → sign-in → permission → rate limit → input validation → safe errors | `functions/lib/callable.js` |
 | Staff permission checks also verify **live** that the account isn't disabled and its sessions weren't revoked | `functions/lib/callable.js` |
+| Accounts: Firebase Auth (Google hashes passwords, throttles sign-in), 10+ character password rule, email verification | `src/app/session.js`, `shared/schemas/account.js` |
+| Sign-in and password-reset messages never reveal whether an email has an account | `src/app/authErrors.js`, `session.requestPasswordReset` |
+| Post-login redirects only to this site (no open redirect) | `src/app/safeNext.js` |
+| Customers can read/write only their own profile and addresses, with field and format checks | `firestore.rules`, `tests/emulator/rules.test.js` |
+| Staff roles only via `services/staff.js`; owner claimable once by the verified `OWNER_EMAIL`; last Owner can't be removed; downgrades revoke sessions; every change audit-logged | `functions/services/staff.js` |
+| Auth SDK set up without iframes, so the CSP keeps `frame-src 'none'` | `src/app/firebase.js` |
+| Admin page is `noindex` and a separate bundle | `admin.html`, `firebase.json` |
+| Products, variants, prices, stock and SKUs are written only by Cloud Functions; shoppers read only published products | `firestore.rules`, `tests/emulator/rules.test.js` |
+| Cost prices live in a separate collection readable only with `costs.read`; saves from staff without it ignore cost | `functions/services/products.js` |
+| Stock can't go negative, even with parallel changes (transactions); every change logged with who and why; sales can't be entered by hand | `functions/services/inventory.js`, `tests/emulator/catalog.test.js` |
+| Orders are created and changed only by Cloud Functions. The server re-reads every price, stock level and delivery charge (browser-sent totals don't exist). One transaction per order: all-or-nothing, no overselling under parallel checkouts, no duplicates on retry | `functions/services/orders.js`, `tests/emulator/orders.test.js` |
+| Customers read only their own orders, history and tracking; internal staff notes and payment records are never readable by customers; another customer's order id looks the same as an unknown one | `firestore.rules`, `tests/emulator/rules.test.js` |
+| Orders keep a permanent snapshot of names, variants and prices; Cash on Delivery is never marked paid automatically; coupons are refused until they exist | `functions/services/orders.js` |
+| CSV exports neutralise spreadsheet formulas and every export is logged; invoices escape all customer text | `functions/lib/csv.js`, `src/ui/invoice.js` |
+| Photo uploads: staff only, JPEG/PNG/WebP only (no SVG), 8 MB limit, uploader recorded; then the real file contents are verified, resized, metadata (camera, GPS) stripped, original deleted | `storage.rules`, `functions/services/images.js` |
 | Rate limiting shared across all server instances, using transactions; IPs stored only as hashes | `functions/lib/rateLimit.js` |
 | Input validation with shared Zod schemas; unknown fields (like a forged `price`) are dropped | `shared/schemas/`, `functions/lib/validate.js` |
 | Internal errors never reach the browser | `functions/lib/errors.js` |
@@ -57,6 +72,11 @@ owner must switch on in the Firebase / Google Cloud / GitHub consoles (code can'
 | `.gitignore` blocks key files, `.env` files and generated folders | `.gitignore` |
 | Dependabot opens update PRs for security fixes weekly | `.github/dependabot.yml` |
 | Dependencies pinned to exact versions; npm blocks install scripts by default | `package.json`, `functions/package.json` |
+| Patched gRPC forced inside the Firebase browser SDK (GHSA-m9gg-hp2v-232j, GHSA-f596-whhp-79r4) | `package.json` `overrides` |
+
+**Known, accepted:** 6 *moderate* advisories in `functions/` come from Google's own `firebase-admin →
+google-gax → rimraf → glob → minimatch` chain (pattern-matching slowdown with attacker-supplied glob
+patterns, which this code never passes). Waiting for Google's update via Dependabot; CI fails only on high.
 | Security regression tests: fail if the CSP, headers, rules or permission checks are weakened | `tests/unit/security.test.js`, `tests/emulator/` |
 
 After cloning, run `git config core.hooksPath .githooks` once to enable the pre-commit hook.
@@ -67,7 +87,6 @@ After cloning, run `git config core.hooksPath .githooks` once to enable the pre-
 
 | Phase | Security added |
 | --- | --- |
-| 3 — Accounts | Firebase Auth sign-up/sign-in (passwords hashed by Google), sign-in throttling, password reset by email, staff roles in custom claims set only by the Owner, session revocation on disable/role change, rules: customers read only their own data |
 | 5 — Products | Image uploads: type and size checked in Storage rules **and** re-checked by a Cloud Function (real file signature), re-encoded to strip metadata; cost prices in a separate restricted collection |
 | 6 — Orders | Server recalculates every price, discount and delivery charge; stock locked in transactions (no overselling); idempotency keys (no duplicate orders); customers see only their own orders; internal notes hidden from customers |
 | 7 — Payments | COD never marked paid automatically; online gateways verified server-side by signed webhooks; gateway secrets in Cloud Functions secrets, never in code |

@@ -1,19 +1,25 @@
 import { esc, formatPKR, pluralize } from "../lib/format.js";
 import { productMedia } from "./illustration.js";
 import { cart, cartSnapshot } from "../app/state.js";
-import { STORE } from "../config.js";
 import { arrow, emptyState } from "./components.js";
 
-const deliveryLabel = (fee) => (fee === null ? "To be confirmed" : fee === 0 ? "Free" : formatPKR(fee));
+const deliveryLabel = (fee) => (fee == null ? "Calculated at checkout" : fee === 0 ? "Free" : formatPKR(fee));
 
-export function totalsBlock(totals, { final = false } = {}) {
+/**
+ * @param {{ itemCount: number, subtotal: number, discount?: number, delivery?: number | null, tax?: number, total?: number | null }} totals
+ *   In the bag only itemCount + subtotal are known; at checkout the server supplies the rest.
+ */
+export function totalsBlock(totals) {
+  const known = totals.total != null;
   return `
   <dl class="totals">
     <div><dt>Subtotal <span class="muted">(${pluralize(totals.itemCount, "item")})</span></dt><dd>${formatPKR(totals.subtotal)}</dd></div>
-    <div><dt>Delivery</dt><dd class="${totals.delivery === null ? "muted" : ""}">${deliveryLabel(totals.delivery)}</dd></div>
+    ${totals.discount ? `<div><dt>Discount</dt><dd>− ${formatPKR(totals.discount)}</dd></div>` : ""}
+    ${totals.tax ? `<div><dt>Tax</dt><dd>${formatPKR(totals.tax)}</dd></div>` : ""}
+    <div><dt>Delivery</dt><dd class="${totals.delivery == null ? "muted" : ""}">${deliveryLabel(totals.delivery)}</dd></div>
     <div class="totals__grand">
-      <dt>${final ? "Estimated total" : "Total"}</dt>
-      <dd>${totals.total === null ? `${formatPKR(totals.subtotal)}<small>+ delivery, confirmed on WhatsApp</small>` : formatPKR(totals.total)}</dd>
+      <dt>${known ? "Total to pay" : "Total"}</dt>
+      <dd>${known ? formatPKR(totals.total) : `${formatPKR(totals.subtotal)}<small>+ delivery</small>`}</dd>
     </div>
   </dl>`;
 }
@@ -26,13 +32,13 @@ function lineItem(l, { editable }) {
     <a class="line__media" href="${href}" tabindex="-1" aria-hidden="true">${productMedia(l.product, l.color)}</a>
     <div class="line__info">
       <p class="line__name"><a href="${href}">${esc(l.product.name)}</a></p>
-      <p class="line__meta">${esc(l.color.name)} · EU ${l.size}</p>
+      <p class="line__meta">${esc(l.color.name)} · Size ${esc(l.sizeLabel)}</p>
       <p class="line__meta">${formatPKR(l.unitPrice)} each</p>
       ${l.available ? "" : `<p class="line__warn">No longer available in this quantity — please remove or reduce.</p>`}
       ${
         editable
           ? `<div class="line__actions">
-              <div class="stepper" role="group" aria-label="Quantity for ${esc(l.product.name)}, EU ${l.size}">
+              <div class="stepper" role="group" aria-label="Quantity for ${esc(l.product.name)}, size ${esc(l.sizeLabel)}">
                 <button type="button" data-qty="dec" data-key="${k}" aria-label="Decrease quantity" ${l.qty <= 1 ? "disabled" : ""}>−</button>
                 <output aria-live="polite">${l.qty}</output>
                 <button type="button" data-qty="inc" data-key="${k}" aria-label="Increase quantity" ${l.qty >= l.maxQty ? "disabled" : ""}>+</button>
@@ -59,7 +65,7 @@ export function bagContents({ variant }) {
     ${lineList(lines, { editable: true })}
     <div class="bag__summary">
       ${totalsBlock(totals)}
-      ${STORE.deliveryFee === null ? `<p class="fine">Delivery charges are confirmed by the store when you place your order on WhatsApp.</p>` : ""}
+      <p class="fine">Delivery is worked out from your city at checkout.</p>
       ${hasUnavailable ? `<p class="form-alert" role="alert">Some items are no longer available in the selected quantity. Update your bag to continue.</p>` : ""}
       <div class="bag__ctas">
         <a class="btn btn--primary btn--block${hasUnavailable ? " is-disabled" : ""}" href="/checkout" ${hasUnavailable ? 'aria-disabled="true"' : ""}>

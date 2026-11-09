@@ -73,8 +73,12 @@ test("rate limiter allows up to the limit, then blocks with retry time; buckets 
   await consumeRateLimit("login", "ip:203.0.113.5", rule, { now: now + 60_000 }); // next window is fresh
 
   // Stored bucket ids are hashes: no raw IP addresses in the database.
-  const ids = (await db.collection("_rateLimits").get()).docs.map((d) => d.id);
-  assert.ok(ids.length >= 4 && ids.every((id) => /^[0-9a-f]{40}$/.test(id) && !id.includes("203")));
+  const docs = (await db.collection("_rateLimits").get()).docs;
+  assert.ok(docs.length >= 4);
+  for (const d of docs) {
+    assert.match(d.id, /^[0-9a-f]{40}$/, "bucket ids are hashes");
+    assert.ok(!JSON.stringify(d.data()).includes("203.0.113.5") && !JSON.stringify(d.data()).includes("198.51.100.7"), "no raw IP stored in the document");
+  }
 });
 
 test("rate limiter holds under parallel requests (transactions, no lost updates)", async () => {

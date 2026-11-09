@@ -16,7 +16,7 @@ import {
 const address = { name: "Test Customer", phone: "0300-1234567", city: "Lahore", area: "Gulberg III", line1: "House 1, Street 2, near the park" };
 const order = () => ({
   idempotencyKey: randomUUID(),
-  items: [{ variantId: "v1", qty: 2 }],
+  items: [{ productId: "p1", variantId: "v1", qty: 2 }],
   customer: { name: "Test Customer", phone: "0300 1234567" },
   address,
   shippingMethodId: "standard",
@@ -31,7 +31,7 @@ test("a valid order request passes and phone is normalised", () => {
 });
 
 test("order requests cannot carry prices, totals or payment status", () => {
-  const r = placeOrderSchema.parse({ ...order(), total: 1, subtotal: 1, paymentStatus: "paid", items: [{ variantId: "v1", qty: 1, price: 1 }] });
+  const r = placeOrderSchema.parse({ ...order(), total: 1, subtotal: 1, paymentStatus: "paid", items: [{ productId: "p1", variantId: "v1", qty: 1, price: 1 }] });
   assert.equal("total" in r, false);
   assert.equal("paymentStatus" in r, false);
   assert.equal("price" in r.items[0], false, "unknown keys are stripped, never trusted");
@@ -44,11 +44,11 @@ test("order request rejections", () => {
     if (field) assert.ok(Object.keys(fieldErrors(r.error)).some((k) => k.startsWith(field)), `expected error on ${field}: ${JSON.stringify(fieldErrors(r.error))}`);
   };
   bad({ items: [] }, "items");
-  bad({ items: [{ variantId: "v1", qty: 0 }] }, "items");
-  bad({ items: [{ variantId: "v1", qty: 11 }] }, "items");
-  bad({ items: [{ variantId: "v1", qty: 1.5 }] }, "items");
-  bad({ items: [{ variantId: "v1", qty: 1 }, { variantId: "v1", qty: 1 }] }, "items");
-  bad({ items: [{ variantId: "a/b", qty: 1 }] }, "items");
+  bad({ items: [{ productId: "p1", variantId: "v1", qty: 0 }] }, "items");
+  bad({ items: [{ productId: "p1", variantId: "v1", qty: 11 }] }, "items");
+  bad({ items: [{ productId: "p1", variantId: "v1", qty: 1.5 }] }, "items");
+  bad({ items: [{ productId: "p1", variantId: "v1", qty: 1 }, { productId: "p1", variantId: "v1", qty: 1 }] }, "items");
+  bad({ items: [{ productId: "p1", variantId: "a/b", qty: 1 }] }, "items");
   bad({ termsAccepted: false }, "termsAccepted");
   bad({ paymentMethod: "card" }, "paymentMethod");
   bad({ idempotencyKey: "not-a-uuid" }, "idempotencyKey");
@@ -80,11 +80,11 @@ test("products, variants and slugs", () => {
 });
 
 test("stock adjustments need a reason, except initial stock", () => {
-  assert.ok(stockAdjustmentSchema.safeParse({ variantId: "v1", change: 5, reason: "initial" }).success);
-  assert.equal(stockAdjustmentSchema.safeParse({ variantId: "v1", change: -2, reason: "adjustment" }).success, false);
-  assert.ok(stockAdjustmentSchema.safeParse({ variantId: "v1", change: -2, reason: "damaged", note: "Sole split" }).success);
-  assert.equal(stockAdjustmentSchema.safeParse({ variantId: "v1", change: 0, reason: "initial" }).success, false);
-  assert.equal(stockAdjustmentSchema.safeParse({ variantId: "v1", change: 2.5, reason: "initial" }).success, false);
+  assert.ok(stockAdjustmentSchema.safeParse({ productId: "p1", variantId: "v1", change: 5, reason: "initial" }).success);
+  assert.equal(stockAdjustmentSchema.safeParse({ productId: "p1", variantId: "v1", change: -2, reason: "adjustment" }).success, false);
+  assert.ok(stockAdjustmentSchema.safeParse({ productId: "p1", variantId: "v1", change: -2, reason: "damaged", note: "Sole split" }).success);
+  assert.equal(stockAdjustmentSchema.safeParse({ productId: "p1", variantId: "v1", change: 0, reason: "initial" }).success, false);
+  assert.equal(stockAdjustmentSchema.safeParse({ productId: "p1", variantId: "v1", change: 2.5, reason: "initial" }).success, false);
 });
 
 test("coupons and shipping rates", () => {

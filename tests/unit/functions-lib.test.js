@@ -30,9 +30,9 @@ test("unexpected errors are hidden from callers; AppErrors pass through", () => 
 });
 
 test("parse() returns cleaned data or a field-level invalid-argument error", () => {
-  assert.equal(parse(stockAdjustmentSchema, { variantId: "v1", change: 3, reason: "initial" }).change, 3);
+  assert.equal(parse(stockAdjustmentSchema, { productId: "p1", variantId: "v1", change: 3, reason: "initial" }).change, 3);
   try {
-    parse(stockAdjustmentSchema, { variantId: "v1", change: 0, reason: "adjustment" });
+    parse(stockAdjustmentSchema, { productId: "p1", variantId: "v1", change: 0, reason: "adjustment" });
     assert.fail("should throw");
   } catch (e) {
     assert.ok(e instanceof AppError);

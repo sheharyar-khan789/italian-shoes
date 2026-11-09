@@ -15,7 +15,11 @@ export const slug = z
   .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Use lower-case letters, numbers and single hyphens");
 
 /** Whole paisa, non-negative, within JavaScript's safe integer range. */
-export const paisa = z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER);
+export const paisa = z
+  .number({ error: "Enter an amount in rupees, e.g. 12500" })
+  .int("Use at most two decimals")
+  .nonnegative("Can't be negative")
+  .max(Number.MAX_SAFE_INTEGER);
 
 /** Positive paisa (a selling price cannot be zero). */
 export const pricePaisa = paisa.refine((n) => n > 0, "Price must be greater than zero");

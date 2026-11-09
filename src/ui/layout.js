@@ -1,9 +1,8 @@
-import { STORE } from "../config.js";
 import { esc, formatPKR } from "../lib/format.js";
 import { maxQtyFor } from "../lib/cart.js";
 import { colorInStock, searchProducts } from "../lib/shop.js";
-import { normalizeWhatsAppNumber } from "../lib/order.js";
-import { cart, cartSnapshot, getCatalog, catalogReady } from "../app/state.js";
+import { onSessionChange, currentUser } from "../app/session.js";
+import { cart, cartSnapshot, getCatalog, getSettings, whenCatalog } from "../app/state.js";
 import { navigate, onRouteChange } from "../app/router.js";
 import { bagContents, bindBagControls, restoreFocus } from "./cartView.js";
 import { colorOptions, sizeOptions, stockText } from "./components.js";
@@ -86,17 +85,18 @@ export const closeSheet = () => sheet.open && sheet.close();
 /* ───────── Add to bag ───────── */
 
 /** Single entry point for adding; refuses missing size/colour or sold-out variants. */
-export function addToBag(product, colorId, size, qty = 1) {
+export function addToBag(product, colorId, sizeId, qty = 1) {
   const color = product.colors.find((c) => c.id === colorId);
   if (!color) return { ok: false, error: "Please choose a colour." };
-  if (size == null || !product.sizes.includes(Number(size))) return { ok: false, error: "Please select a size." };
-  const max = maxQtyFor(color, Number(size));
+  const size = sizeId ? product.sizes.find((s) => s.id === sizeId) : null;
+  if (!size) return { ok: false, error: "Please select a size." };
+  const max = maxQtyFor(color, size.id);
   if (max < 1) return { ok: false, error: "This size is sold out." };
-  const inBag = cart.get().find((l) => l.productId === product.id && l.colorId === color.id && l.size === Number(size))?.qty ?? 0;
+  const inBag = cart.get().find((l) => l.productId === product.id && l.colorId === color.id && l.sizeId === size.id)?.qty ?? 0;
   if (inBag >= max) return { ok: false, error: `You already have the maximum available (${max}) in your bag.` };
-  cart.add({ productId: product.id, colorId: color.id, size: Number(size), qty }, max);
+  cart.add({ productId: product.id, colorId: color.id, sizeId: size.id, qty }, max);
   const added = Math.min(qty, max - inBag);
-  toast(`Added to bag — ${product.name}, ${color.name}, EU ${size}${added > 1 ? ` ×${added}` : ""}`);
+  toast(`Added to bag — ${product.name}, ${color.name}, size ${size.label}${added > 1 ? ` ×${added}` : ""}`);
   return { ok: true };
 }
 
@@ -116,7 +116,7 @@ function quickAdd(product, colorId) {
           <div class="color-opts">${colorOptions(product, color.id, "qa-color")}</div>
         </fieldset>
         <fieldset class="field-set">
-          <legend>Size <span class="muted">(EU)</span></legend>
+          <legend>Size</legend>
           <div class="size-opts">${sizeOptions(product, color, size, "qa-size")}</div>
         </fieldset>
         <p class="stock stock--${stockText(color, size).tone}">${stockText(color, size).text}</p>
@@ -137,7 +137,7 @@ function quickAdd(product, colorId) {
         rerender();
         body.querySelector(`input[name="qa-color"]:checked`)?.focus();
       } else if (e.target.name === "qa-size") {
-        size = Number(e.target.value);
+        size = e.target.value;
         rerender();
         body.querySelector(`input[name="qa-size"]:checked`)?.focus();
       }
@@ -174,7 +174,7 @@ function renderSuggestions() {
   const { products, categories } = getCatalog();
   if (!q) {
     suggest.innerHTML = `<p class="suggest__label">Browse</p><div class="suggest__chips">${categories
-      .map((c) => `<a class="chip" href="/shop/${c.id}">${esc(c.name)}</a>`)
+      .map((c) => `<a class="chip" href="/shop/${esc(c.slug)}">${esc(c.name)}</a>`)
       .join("")}</div>`;
     return;
   }
@@ -183,11 +183,11 @@ function renderSuggestions() {
     ? `<ul class="suggest__list">${hits
         .map((p) => `<li><a href="/product/${p.slug}"><span>${esc(p.name)}</span><span class="muted">${formatPKR(p.price)}</span></a></li>`)
         .join("")}</ul><a class="text-link" href="/search?q=${encodeURIComponent(q)}">See all results for “${esc(q)}”</a>`
-    : `<p class="suggest__label">No matches for “${esc(q)}”. Try “loafer”, “black” or “boots”.</p>`;
+    : `<p class="suggest__label">No matches for “${esc(q)}”. Try another word.</p>`;
 }
 
 export async function openSearch(initial = "") {
-  await catalogReady;
+  await whenCatalog();
   searchInput.value = initial;
   renderSuggestions();
   openDialog(searchDialog);
@@ -259,59 +259,65 @@ document.addEventListener("click", (e) => {
 
 /* ───────── Brand + footer from config ───────── */
 
+/** Store details come from the public settings the owner saved in the admin; nothing is assumed. */
 export function applyStoreConfig() {
-  document.querySelectorAll(".brand").forEach((brand) => {
-    if (STORE.logo) {
-      brand.innerHTML = `<img class="brand__logo" src="${esc(STORE.logo)}" alt="${esc(STORE.name || "Store logo")}" />`;
-    } else if (STORE.name) {
-      brand.querySelector(".brand__word").textContent = STORE.name;
-    }
-  });
-
+  const s = getSettings();
+  if (s.storeName) document.querySelectorAll(".brand .brand__word").forEach((el) => (el.textContent = s.storeName));
   const urdu = document.querySelector("[data-name-urdu]");
-  if (urdu) urdu.textContent = STORE.nameUrdu ?? "";
+  if (urdu) urdu.textContent = s.storeNameUrdu ?? "";
 
-  const c = STORE.contact;
+  // Category links come from the database (the owner's categories), not from the page.
+  const { categories } = getCatalog();
+  document.querySelectorAll('#site-nav a[href^="/shop/"]').forEach((a) => a.closest("li")?.remove());
+  document.querySelector('#site-nav a[href="/shop"]')?.closest("li")?.insertAdjacentHTML("afterend", categories.map((c) => `<li><a href="/shop/${esc(c.slug)}">${esc(c.name)}</a></li>`).join(""));
+  const footerShop = document.querySelector('.site-footer a[href="/shop?avail=sale"]')?.parentElement;
+  footerShop?.querySelectorAll('a[href^="/shop/"]').forEach((a) => a.remove());
+  footerShop?.insertAdjacentHTML("beforeend", categories.map((c) => `<a href="/shop/${esc(c.slug)}">${esc(c.name)}</a>`).join(""));
+  const line = document.querySelector(".footer__line");
+  if (line) line.textContent = s.address ?? "";
+
   const contact = document.querySelector("[data-footer-contact]");
+  contact.replaceChildren();
   const rows = [
-    c.phone && `<a href="tel:${esc(c.phone.replace(/[^\d+]/g, ""))}">${esc(c.phone)}</a>`,
-    c.email && `<a href="mailto:${esc(c.email)}">${esc(c.email)}</a>`,
-    c.address && `<p>${esc(c.address)}</p>`,
-    c.hours && `<p>${esc(c.hours)}</p>`,
-    c.instagram && `<a href="${esc(c.instagram)}" target="_blank" rel="noopener noreferrer">Instagram</a>`,
+    s.phone && `<a href="tel:${esc(s.phone.replace(/[^\d+]/g, ""))}">${esc(s.phone)}</a>`,
+    s.email && `<a href="mailto:${esc(s.email)}">${esc(s.email)}</a>`,
+    s.address && `<p>${esc(s.address)}</p>`,
+    s.hours && `<p>${esc(s.hours)}</p>`,
+    s.instagram && `<a href="${esc(s.instagram)}" target="_blank" rel="noopener noreferrer">Instagram</a>`,
   ].filter(Boolean);
-  contact.insertAdjacentHTML(
-    "beforeend",
-    rows.length ? rows.join("") : `<p class="muted">Contact details to be confirmed.</p><a href="/contact">Contact page</a>`,
-  );
+  contact.insertAdjacentHTML("beforeend", rows.length ? rows.join("") : `<a href="/contact">Contact us</a>`);
 
-  document.querySelector("[data-demo-note]").textContent = STORE.demoCatalog
-    ? "Demonstration storefront — products, prices and stock shown are sample data, not the store's real inventory."
-    : `© ${new Date().getFullYear()} ${STORE.name || ""}`.trim();
+  document.querySelector("[data-demo-note]").textContent = `© ${new Date().getFullYear()} ${s.storeName || ""}`.trim();
 
-  if (STORE.announcement) {
-    announce.textContent = STORE.announcement;
-    announce.hidden = false;
-    document.body.classList.add("has-announce");
-  }
+  announce.textContent = s.announcement ?? "";
+  announce.hidden = !s.announcement;
+  document.body.classList.toggle("has-announce", Boolean(s.announcement));
 
-  // Floating contact button: WhatsApp once the number is configured, otherwise a phone call.
-  const fab = document.querySelector("[data-fab]");
-  const wa = normalizeWhatsAppNumber(STORE.whatsappNumber);
-  const phoneDigits = c.phone.replace(/\D/g, "").replace(/^0/, "");
-  if (wa || phoneDigits) {
-    fab.href = wa ? `https://wa.me/${wa}` : `tel:+92${phoneDigits}`;
-    if (wa) {
-      fab.target = "_blank";
-      fab.rel = "noopener noreferrer";
-    }
-    fab.setAttribute("aria-label", wa ? "Message the store on WhatsApp" : `Call the store, ${c.phone}`);
-    fab.innerHTML = wa
-      ? `<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M4.5 19.5l1.1-3.6A8 8 0 1 1 8.3 18.6z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><path d="M9.2 8.6c.3 2.6 2.5 4.9 5.2 5.3l1-1.2-1.7-.9-.8.7c-.9-.4-1.7-1.2-2.1-2.1l.7-.8-.9-1.7z" fill="currentColor"/></svg>`
-      : `<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M6.6 3.5l2.6 3.8-1.6 1.9c.9 2.3 3 4.4 5.3 5.3l1.9-1.6 3.8 2.6-1 2.9c-.3.8-1.1 1.3-1.9 1.2C9.8 19 5 14.2 4.4 8.3c-.1-.8.4-1.6 1.2-1.9z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>`;
-    fab.hidden = false;
+  // Floating button: call the store, once a phone number has been saved.
+  const fab = /** @type {HTMLAnchorElement} */ (document.querySelector("[data-fab]"));
+  const phoneDigits = (s.phone ?? "").replace(/\D/g, "").replace(/^0/, "").replace(/^92/, "");
+  fab.hidden = !phoneDigits;
+  if (phoneDigits) {
+    fab.href = `tel:+92${phoneDigits}`;
+    fab.removeAttribute("target");
+    fab.setAttribute("aria-label", `Call the store, ${s.phone}`);
+    fab.innerHTML = `<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M6.6 3.5l2.6 3.8-1.6 1.9c.9 2.3 3 4.4 5.3 5.3l1.9-1.6 3.8 2.6-1 2.9c-.3.8-1.1 1.3-1.9 1.2C9.8 19 5 14.2 4.4 8.3c-.1-.8.4-1.6 1.2-1.9z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>`;
   }
 
   updateHeader();
   renderCount();
+}
+
+/* ───────── Account link (header) ───────── */
+
+function paintAccountLink(user) {
+  const label = user ? `Your account${user.name ? `, ${user.name.split(" ")[0]}` : ""}` : "Sign in";
+  document.querySelectorAll("[data-account-link]").forEach((a) => a.setAttribute("aria-label", label));
+  document.querySelectorAll("[data-account-link-text]").forEach((a) => (a.textContent = user ? "Your account" : "Sign in"));
+}
+
+/** Called once the session is known; keeps the header in step with sign-in / sign-out. */
+export function bindAccountLink() {
+  paintAccountLink(currentUser());
+  onSessionChange(paintAccountLink);
 }

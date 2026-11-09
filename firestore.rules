@@ -3,30 +3,278 @@ rules_version = '2';
 // Cloud Firestore security rules.
 //
 // Principle: DENY BY DEFAULT. A path is readable or writable only if a rule below allows it.
-// Each phase opens exactly the paths it needs, with tests in tests/rules/.
+// Each phase opens exactly the paths it needs, with tests in tests/emulator/rules.test.js.
 //
 // Cloud Functions use the Admin SDK, which bypasses these rules by design; that is where
-// prices, stock, orders and payments are written. Clients can never write those directly.
+// prices, stock, orders, payments and staff roles are written. Clients can never write those.
 
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // ── Helpers (used from Phase 3 onwards) ─────────────────────────────────
+    // ── Helpers ──────────────────────────────────────────────────────────────
     function signedIn() {
       return request.auth != null;
     }
     function isSelf(uid) {
       return signedIn() && request.auth.uid == uid;
     }
-    // Staff permissions are written into Auth custom claims by a Cloud Function.
+    // Staff permissions are written into Auth custom claims by a Cloud Function (services/staff.js).
     function can(permission) {
       return signedIn()
         && request.auth.token.staff == true
         && request.auth.token.perms is list
         && permission in request.auth.token.perms;
     }
+    function isStaff() {
+      return signedIn() && request.auth.token.staff == true;
+    }
+    function onlyKeys(allowed) {
+      return request.resource.data.keys().hasOnly(allowed);
+    }
+    function changedOnly(allowed) {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(allowed);
+    }
+    function str(v, min, max) {
+      return v is string && v.size() >= min && v.size() <= max;
+    }
+    // "+92 3XX XXXXXXX" — the browser normalises numbers with shared/phone.js before saving.
+    function pkMobile(v) {
+      return v is string && v.matches('^\\+92 3[0-9]{2} [0-9]{7}$');
+    }
+    function optionalPhone(v) {
+      return v == "" || pkMobile(v);
+    }
 
-    // ── Default: nothing is allowed ──────────────────────────────────────────
+    // ── Customer profiles ────────────────────────────────────────────────────
+    // A customer creates and edits only their own profile, and only these fields.
+    // Account status, roles and anything else are server-only.
+    match /users/{uid} {
+      allow read: if isSelf(uid) || can('customers.read');
+      allow create: if isSelf(uid)
+        && onlyKeys(['name', 'email', 'phone', 'createdAt', 'updatedAt'])
+        && str(request.resource.data.name, 3, 80)
+        && request.resource.data.email == request.auth.token.email
+        && optionalPhone(request.resource.data.phone)
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time;
+      allow update: if isSelf(uid)
+        && changedOnly(['name', 'phone', 'updatedAt'])
+        && str(request.resource.data.name, 3, 80)
+        && optionalPhone(request.resource.data.phone)
+        && request.resource.data.updatedAt == request.time;
+      allow delete: if false;
+
+      // Saved delivery addresses — private to the account holder.
+      match /addresses/{addressId} {
+        function validAddress() {
+          let a = request.resource.data;
+          return onlyKeys(['label', 'name', 'phone', 'city', 'area', 'line1', 'isDefault', 'createdAt', 'updatedAt'])
+            && str(a.label, 0, 40)
+            && str(a.name, 3, 80)
+            && pkMobile(a.phone)
+            && str(a.city, 2, 60)
+            && str(a.area, 2, 80)
+            && str(a.line1, 10, 300)
+            && a.isDefault is bool
+            && a.updatedAt == request.time;
+        }
+        allow read: if isSelf(uid);
+        allow create: if isSelf(uid) && validAddress() && request.resource.data.createdAt == request.time;
+        allow update: if isSelf(uid) && validAddress() && request.resource.data.createdAt == resource.data.createdAt;
+        allow delete: if isSelf(uid);
+      }
+    }
+
+    // ── Staff and roles (written only by Cloud Functions) ────────────────────
+    match /staff/{uid} {
+      allow read: if isSelf(uid) || can('staff.manage');
+      allow write: if false;
+    }
+    match /roles/{role} {
+      allow read: if isStaff();
+      allow write: if false;
+    }
+
+    // ── Store settings (written only by the saveSettings Cloud Function) ──────
+    match /settings/public {
+      allow read: if true;
+      allow write: if false;
+    }
+    match /settings/private {
+      allow read: if can('settings.manage');
+      allow write: if false;
+    }
+
+    // ── Admin notifications ──────────────────────────────────────────────────
+    // Staff read only notifications addressed to a permission they hold. Queries must filter on
+    // `audience in <my permissions>` for the rule to accept them. The only change a client can make
+    // is adding their own uid to readBy (mark as read).
+    match /notifications/{id} {
+      allow read: if isStaff() && can(resource.data.audience);
+      allow update: if isStaff() && can(resource.data.audience)
+        && changedOnly(['readBy'])
+        && request.resource.data.readBy.hasAll(resource.data.readBy)
+        && request.resource.data.readBy.removeAll(resource.data.readBy) == [request.auth.uid];
+      allow create, delete: if false;
+    }
+
+    // ── Activity log (append-only, written by Cloud Functions) ───────────────
+    match /auditLogs/{id} {
+      allow read: if can('audit.read');
+      allow write: if false;
+    }
+
+    // ── Catalogue (written only by Cloud Functions: services/catalog.js, products.js, inventory.js) ──
+    // Categories, brands, colours and sizes are public reference data.
+    match /categories/{id} {
+      allow read: if true;
+      allow write: if false;
+    }
+    match /brands/{id} {
+      allow read: if true;
+      allow write: if false;
+    }
+    match /colors/{id} {
+      allow read: if true;
+      allow write: if false;
+    }
+    match /sizes/{id} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // Products: customers see only published ones (list queries must filter status == "published").
+    // Staff with products.read see drafts and archived ones too.
+    match /products/{productId} {
+      allow read: if resource.data.status == 'published' || can('products.read');
+      allow write: if false;
+
+      // Variants (sizes/colours with price and public `available` count) follow their product.
+      match /variants/{variantId} {
+        allow read: if can('products.read')
+          || get(/databases/$(database)/documents/products/$(productId)).data.status == 'published';
+        allow write: if false;
+      }
+    }
+
+    // Cost prices, exact stock records and stock history are staff-only.
+    match /variantCosts/{id} {
+      allow read: if can('costs.read');
+      allow write: if false;
+    }
+    match /inventory/{id} {
+      allow read: if can('inventory.read');
+      allow write: if false;
+    }
+    match /stockMovements/{id} {
+      allow read: if can('inventory.read');
+      allow write: if false;
+    }
+    // Image upload results, so the uploader's screen can show "added" or why it was rejected.
+    match /uploads/{id} {
+      allow read: if can('products.write');
+      allow write: if false;
+    }
+
+    // ── Orders (created and changed only by Cloud Functions: services/orders.js) ──
+    // A customer reads only their own orders; list queries must filter userId == their uid.
+    // Staff need orders.read. Nobody writes from the browser.
+    match /orders/{orderId} {
+      allow read: if isSelf(resource.data.userId) || can('orders.read');
+      allow write: if false;
+
+      function ownsOrder() {
+        return isSelf(get(/databases/$(database)/documents/orders/$(orderId)).data.userId);
+      }
+      match /history/{id} {
+        allow read: if ownsOrder() || can('orders.read');
+        allow write: if false;
+      }
+      match /shipments/{id} {
+        allow read: if ownsOrder() || can('orders.read');
+        allow write: if false;
+      }
+      // Internal staff notes are never visible to customers.
+      match /internalNotes/{id} {
+        allow read: if can('orders.read');
+        allow write: if false;
+      }
+    }
+    // Payment records and their collection/refund history: staff who handle orders or payments.
+    match /payments/{id} {
+      allow read: if can('orders.read') || can('payments.update');
+      allow write: if false;
+      match /transactions/{tid} {
+        allow read: if can('orders.read') || can('payments.update');
+        allow write: if false;
+      }
+    }
+    match /paymentMethods/{id} {
+      allow read: if isStaff();
+      allow write: if false;
+    }
+
+    // Delivery configuration is staff-only; customers get options and charges from quoteCheckout.
+    match /shippingMethods/{id} {
+      allow read: if can('shipping.manage') || can('orders.read');
+      allow write: if false;
+    }
+    match /shippingRates/{id} {
+      allow read: if can('shipping.manage') || can('orders.read');
+      allow write: if false;
+    }
+
+    // ── Coupons: staff read; all changes and redemptions go through Cloud Functions ──
+    match /coupons/{code} {
+      allow read: if can('coupons.manage');
+      allow write: if false;
+      match /uses/{uid} {
+        allow read: if can('coupons.manage');
+        allow write: if false;
+      }
+    }
+
+    // ── Reviews: approved ones are public; a customer sees their own; staff moderate ──
+    match /reviews/{id} {
+      allow read: if resource.data.status == 'approved'
+        || (signedIn() && resource.data.userId == request.auth.uid)
+        || can('reviews.moderate');
+      allow write: if false;
+    }
+
+    // ── Website content: active/published items are public; changes go through Functions ──
+    match /banners/{id} {
+      allow read: if resource.data.isActive == true || can('content.manage');
+      allow write: if false;
+    }
+    match /faqs/{id} {
+      allow read: if resource.data.isActive == true || can('content.manage');
+      allow write: if false;
+    }
+    match /pages/{slug} {
+      // A page that doesn't exist reads as "not found" (resource == null), not as an error.
+      allow read: if resource == null || resource.data.isPublished == true || can('content.manage');
+      allow write: if false;
+    }
+    match /content/{doc} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // ── Wishlist: private to the account holder ──
+    match /users/{uid}/wishlist/{productId} {
+      allow read: if isSelf(uid);
+      allow create: if isSelf(uid)
+        && onlyKeys(['productId', 'createdAt'])
+        && request.resource.data.productId == productId
+        && request.resource.data.createdAt == request.time;
+      allow delete: if isSelf(uid);
+      allow update: if false;
+    }
+
+    // ── Default: nothing else is allowed ─────────────────────────────────────
+    // (skus registry, counters, idempotency, …)
+    // (includes _migrations, _rateLimits, system, auditLogs, orders, inventory…)
     match /{document=**} {
       allow read, write: if false;
     }

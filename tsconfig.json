@@ -20,6 +20,6 @@
   },
   // New platform code is type-checked from day one. The pre-existing storefront (src/views,
   // src/ui, src/lib, scene.js) is added module by module as it is rewired to Firebase in Phase 9.
-  "include": ["shared/**/*.js", "functions/**/*.js", "scripts/**/*.mjs", "src/app/firebase*.js"],
+  "include": ["shared/**/*.js", "functions/**/*.js", "scripts/**/*.mjs", "src/app/firebase*.js", "src/app/session.js", "src/app/safeNext.js", "src/app/authErrors.js", "src/ui/forms.js", "src/admin/**/*.js", "src/views/account.js", "src/views/accountOrders.js", "src/app/ordersData.js", "src/ui/invoice.js", "src/ui/orderLabels.js", "src/lib/when.js", "src/data/product.js", "src/lib/cart.js", "src/lib/idempotency.js", "src/lib/seo.js", "src/app/functions.js"],
   "exclude": ["node_modules", "functions/node_modules", "functions/shared", "dist"]
 }

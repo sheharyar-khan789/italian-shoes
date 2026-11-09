@@ -67,10 +67,13 @@ export function searchProducts(products, categories, query) {
   if (!words.length) return [];
   return products.filter((p) => {
     const cat = categories.find((c) => c.id === p.category)?.name ?? "";
-    const text = norm([p.name, p.id, cat, p.style, p.description, ...p.colors.map((c) => `${c.name} ${c.family}`)].join(" "));
+    const text = norm([p.name, cat, p.description, ...(p.keywords ?? []), ...p.colors.map((c) => c.name)].join(" "));
     return words.every((w) => text.includes(w));
   });
 }
 
-/** Distinct sizes across products, ascending. */
-export const allSizes = (products) => [...new Set(products.flatMap((p) => p.sizes))].sort((a, b) => a - b);
+/** Distinct sizes across products as { id, label }, in natural order of the label (36, 37, … 42). */
+export const allSizes = (products) => {
+  const byId = new Map(products.flatMap((p) => p.sizes).map((s) => [s.id, s]));
+  return [...byId.values()].sort((a, b) => a.label.localeCompare(b.label, undefined, { numeric: true }));
+};

@@ -1,0 +1,7 @@
+# Keep private areas out of search results. (Pages marked noindex are also excluded.)
+User-agent: *
+Disallow: /admin
+Disallow: /account
+Disallow: /checkout
+Disallow: /cart
+Disallow: /order/

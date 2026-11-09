@@ -1,4 +1,4 @@
-import { catalogReady, cart } from "../app/state.js";
+import { whenCatalog as catalogReady, cart } from "../app/state.js";
 import { bagContents, bindBagControls, restoreFocus } from "../ui/cartView.js";
 
 export default async function cartPage({ outlet }) {

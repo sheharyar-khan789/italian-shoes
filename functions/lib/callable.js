@@ -1,3 +1,4 @@
+import "./options.js"; // region and limits before any function is created
 /**
  * The ONE way to create a callable Cloud Function in this project. It applies, in order:
  *

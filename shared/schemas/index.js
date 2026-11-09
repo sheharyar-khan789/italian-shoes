@@ -2,6 +2,8 @@ export * from "./common.js";
 export * from "./catalog.js";
 export * from "./checkout.js";
 export * from "./commerce.js";
+export * from "./account.js";
+export * from "./orders.js";
 
 /**
  * Turn a Zod error into { field: message } for forms and API responses.
@@ -17,3 +19,4 @@ export function fieldErrors(error) {
   }
   return out;
 }
+export * from "./engage.js";

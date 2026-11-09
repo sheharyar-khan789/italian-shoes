@@ -56,18 +56,65 @@ export const shippingRateSchema = z.object({
 
 /* ───────── Store settings (public part) ───────── */
 
+/** Empty, or an https:// link (blocks javascript: and other unsafe links in owner-entered URLs). */
+export const httpsUrl = z
+  .string()
+  .transform((s) => s.trim())
+  .pipe(
+    z
+      .string()
+      .max(300)
+      .refine((s) => {
+        if (s === "") return true;
+        try {
+          return new URL(s).protocol === "https:";
+        } catch {
+          return false;
+        }
+      }, "Use a full link starting with https://"),
+  );
+
+/** Store phone: mobile or landline, digits with optional + - spaces. */
+const storePhone = z
+  .string()
+  .transform((s) => s.trim())
+  .pipe(z.string().max(30).regex(/^$|^\+?[0-9][0-9 -]{6,28}$/, "Use digits, spaces, + or -"));
+
+const optionalEmail = z
+  .string()
+  .transform((s) => s.trim().toLowerCase())
+  .pipe(z.string().max(254).regex(/^$|^[^\s@]+@[^\s@]+\.[^\s@]+$/, "Enter a valid email address"));
+
+/** Readable by everyone (storefront header, footer, contact page, SEO). Edited by the Owner. */
 export const publicSettingsSchema = z.object({
   storeName: text(1, 80),
-  logoPath: optionalText(300),
-  phone: optionalText(30),
-  email: optionalText(254),
+  storeNameUrdu: optionalText(80),
+  phone: storePhone.default(""),
+  email: optionalEmail.default(""),
   address: optionalText(200),
   hours: optionalText(120),
-  instagram: optionalText(300),
-  facebook: optionalText(300),
+  instagram: httpsUrl.default(""),
+  facebook: httpsUrl.default(""),
+  announcement: optionalText(140),
   currency: z.literal("PKR").default("PKR"),
   isOpen: z.boolean().default(true),
   registrationOpen: z.boolean().default(true),
   seoTitle: optionalText(70),
   seoDescription: optionalText(160),
 });
+
+/** Staff-only operational settings. */
+export const privateSettingsSchema = z.object({
+  orderPrefix: z
+    .string()
+    .transform((s) => s.trim().toUpperCase())
+    .pipe(z.string().regex(/^[A-Z]{2,6}$/, "2–6 letters, e.g. IS")),
+  lowStockThreshold: z.number({ error: "Enter a whole number" }).int("Enter a whole number").min(0).max(1000),
+  taxEnabled: z.boolean().default(false),
+  /** Only used when taxEnabled; set by the owner from their tax advice, never assumed. */
+  taxRatePercent: z.number({ error: "Enter a number" }).min(0).max(30, "At most 30%").default(0),
+  notifyNewOrders: z.boolean().default(true),
+  notifyLowStock: z.boolean().default(true),
+});
+
+export const saveSettingsSchema = z.object({ public: publicSettingsSchema, private: privateSettingsSchema });

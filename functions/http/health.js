@@ -1,3 +1,4 @@
+import "../lib/options.js"; // region and limits before any function is created
 import { onRequest } from "firebase-functions/v2/https";
 import { db } from "../lib/admin.js";
 import { log } from "../lib/logger.js";

@@ -1,15 +1,27 @@
 /**
  * Cloud Functions entry point. Every deployed function is exported from here.
- * Business logic lives in services/ (added from Phase 3); this file only wires things up.
+ * Business logic lives in services/; this file only wires things up.
  */
-import { setGlobalOptions } from "firebase-functions/v2";
-
-setGlobalOptions({
-  // Mumbai is the closest Google region to Pakistan. Keep it in the same region as the
-  // Firestore database (chosen when the database was created in the Firebase console).
-  region: process.env.FUNCTIONS_REGION || "asia-south1",
-  // A hard ceiling on parallel instances keeps Blaze costs bounded if traffic spikes or someone abuses an endpoint.
-  maxInstances: 10,
-});
+import "./lib/options.js"; // must stay first: sets region and limits before any function is created
 
 export { healthCheck } from "./http/health.js";
+export { claimOwner, setStaffRoles } from "./callable/staff.js";
+export { saveSettings } from "./callable/settings.js";
+export {
+  saveCategory,
+  saveBrand,
+  saveColor,
+  saveSize,
+  deleteCatalogItem,
+  saveProduct,
+  setProductStatus,
+  saveVariant,
+  createVariants,
+  productImageAction,
+  adjustStock,
+} from "./callable/catalog.js";
+export { quoteCheckout, placeOrder, cancelMyOrder, updateOrderStatus, addOrderNote, addShipment, exportOrders } from "./callable/orders.js";
+export { recordCollection, recordRefund, setPaymentMethod, saveShippingMethod, saveShippingRate, deleteShippingItem } from "./callable/payments.js";
+export { onProductImageUploaded } from "./triggers/images.js";
+export { saveCoupon, deleteCoupon } from "./callable/coupons.js";
+export { submitReview, moderateReview, deleteReview, setCustomerDisabled, saveBanner, saveFaq, savePage, deletePage, saveHome, deleteContentItem, salesReport, inventoryReport } from "./callable/engage.js";

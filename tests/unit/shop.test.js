@@ -1,25 +1,23 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { queryProducts, searchProducts, allSizes } from "../../src/lib/shop.js";
-import { PRODUCTS, CATEGORIES } from "../../src/data/catalog.js";
+import { queryProducts, searchProducts, allSizes, onSale, discountPercent } from "../../src/lib/shop.js";
+import { PRODUCTS, CATEGORIES } from "../fixtures/products.js";
 
 test("category filter", () => {
-  const r = queryProducts(PRODUCTS, { category: "formal" });
-  assert.ok(r.length > 0);
-  assert.ok(r.every((p) => p.category === "formal"));
+  const r = queryProducts(PRODUCTS, { category: "cat-formal" });
+  assert.deepEqual(r.map((p) => p.id), ["p-formal"]);
 });
 
 test("price band filter", () => {
   const r = queryProducts(PRODUCTS, { price: ["0-10000"] });
-  assert.ok(r.length > 0);
-  assert.ok(r.every((p) => p.price < 10000));
+  assert.deepEqual(r.map((p) => p.id), ["p-formal"]);
 });
 
-test("size filter only matches sizes that are in stock", () => {
-  // Desert Boot brown is entirely sold out; sand has stock in 41.
-  const r = queryProducts(PRODUCTS, { sizes: [41], colors: ["brown"] });
-  assert.ok(!r.some((p) => p.id === "DEMO-BO-002"));
-  assert.ok(queryProducts(PRODUCTS, { sizes: [41], colors: ["tan"] }).some((p) => p.id === "DEMO-BO-002"));
+test("size filter only matches sizes that are in stock in a matching colour", () => {
+  // The Midnight colour is entirely sold out; Beach Rose has stock in s41.
+  assert.ok(!queryProducts(PRODUCTS, { sizes: ["s41"], colors: ["night"] }).some((p) => p.id === "p-low"));
+  assert.ok(queryProducts(PRODUCTS, { sizes: ["s41"], colors: ["beach"] }).some((p) => p.id === "p-low"));
+  assert.ok(!queryProducts(PRODUCTS, { sizes: ["s42"], colors: ["beach"] }).some((p) => p.id === "p-low"), "s42 is sold out in Beach Rose");
 });
 
 test("sorting", () => {
@@ -32,47 +30,32 @@ test("sorting", () => {
 });
 
 test("impossible filter combination returns empty", () => {
-  assert.deepEqual(queryProducts(PRODUCTS, { category: "sandals", price: ["20000-"] }), []);
+  assert.deepEqual(queryProducts(PRODUCTS, { category: "cat-formal", price: ["20000-"] }), []);
 });
 
-test("search matches name, category and colour words", () => {
-  assert.ok(searchProducts(PRODUCTS, CATEGORIES, "chelsea").some((p) => p.slug === "classic-chelsea"));
-  assert.ok(searchProducts(PRODUCTS, CATEGORIES, "formal black").every((p) => p.category === "formal"));
+test("search matches name, category, colour and keyword words", () => {
+  assert.deepEqual(searchProducts(PRODUCTS, CATEGORIES, "oxford").map((p) => p.id), ["p-formal"]);
+  assert.deepEqual(searchProducts(PRODUCTS, CATEGORIES, "formal black").map((p) => p.id), ["p-formal"]);
   assert.deepEqual(searchProducts(PRODUCTS, CATEGORIES, "   "), []);
   assert.deepEqual(searchProducts(PRODUCTS, CATEGORIES, "zzzz"), []);
 });
 
-test("catalogue integrity: unique ids/slugs, sizes have stock entries", () => {
-  assert.equal(new Set(PRODUCTS.map((p) => p.id)).size, PRODUCTS.length);
-  assert.equal(new Set(PRODUCTS.map((p) => p.slug)).size, PRODUCTS.length);
-  for (const p of PRODUCTS) {
-    assert.ok(CATEGORIES.some((c) => c.id === p.category), p.id);
-    for (const c of p.colors) for (const s of p.sizes) assert.ok(s in c.stock, `${p.id} ${c.id} ${s}`);
-  }
-  assert.ok(allSizes(PRODUCTS).length >= 7);
+test("sizes are listed once each, in natural order", () => {
+  assert.deepEqual(allSizes(PRODUCTS).map((s) => s.label), ["40", "41", "42", "43"]);
 });
 
-test("sale filter and discount percent", async () => {
-  const { onSale, discountPercent } = await import("../../src/lib/shop.js");
+test("sale filter and discount percent", () => {
   const sale = queryProducts(PRODUCTS, { sale: true });
-  assert.ok(sale.length > 0);
+  assert.deepEqual(sale.map((p) => p.id), ["p-formal"]);
   assert.ok(sale.every(onSale));
-  assert.ok(sale.every((p) => p.compareAt > p.price));
   assert.equal(discountPercent({ price: 5900, compareAt: 6900 }), 14);
   assert.equal(discountPercent({ price: 5900 }), 0);
   assert.equal(onSale({ price: 5900, compareAt: 5900 }), false);
 });
 
 test("in-stock-only filter drops fully sold-out products", () => {
-  const soldOut = { ...PRODUCTS[0], id: "X", colors: [{ ...PRODUCTS[0].colors[0], stock: { 41: 0 } }] };
+  const soldOut = { ...PRODUCTS[0], id: "X", colors: [{ ...PRODUCTS[0].colors[1] }] };
   const list = [...PRODUCTS, soldOut];
   assert.ok(queryProducts(list, {}).some((p) => p.id === "X"));
   assert.ok(!queryProducts(list, { inStock: true }).some((p) => p.id === "X"));
-});
-
-test("alphabetical sorts", () => {
-  const az = queryProducts(PRODUCTS, { sort: "name-asc" }).map((p) => p.name);
-  assert.deepEqual(az, [...az].sort((a, b) => a.localeCompare(b)));
-  const za = queryProducts(PRODUCTS, { sort: "name-desc" }).map((p) => p.name);
-  assert.deepEqual(za, [...az].reverse());
 });

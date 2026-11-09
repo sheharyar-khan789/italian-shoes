@@ -1,10 +1,10 @@
 import { getHero } from "../ui/hero.js";
-import { catalogReady, getCatalog } from "../app/state.js";
+import { getCatalog, getSettings } from "../app/state.js";
+import { loadBanners } from "../data/store.js";
 import { queryProducts } from "../lib/shop.js";
 import { esc } from "../lib/format.js";
 import { illustration } from "../ui/illustration.js";
-import { grid, bindCardSwatches, placeholderNote } from "../ui/components.js";
-import { STORE } from "../config.js";
+import { grid, bindCardSwatches, catalogGate } from "../ui/components.js";
 
 const CATEGORY_ART = {
   sneakers: { style: "sneaker", color: { hex: "#c99389", sole: "#ece6dc" } },
@@ -16,18 +16,42 @@ const CATEGORY_ART = {
   kids: { style: "school", color: { hex: "#1b1a19", sole: "#141210" } },
 };
 
-export default async function home({ outlet }) {
-  document.title = STORE.name ? `${STORE.name} — ${STORE.contact.address.split(",").pop().trim() || "Footwear"}` : "Footwear — Studio Edition";
+export default async function home(ctx) {
+  const { outlet } = ctx;
   outlet.append(getHero());
 
-  await catalogReady;
-  const { products, categories } = getCatalog();
+  if (!(await catalogGate(outlet, () => home({ ...ctx, outlet })))) return;
+  const { products, categories, home: layout } = getCatalog();
+  const s = getSettings();
+  document.title = s.seoTitle || s.storeName || "Italian Shoes";
+  const show = (key) => layout?.[key] !== false;
   const newest = queryProducts(products, { sort: "newest" }).slice(0, 4);
-  const featured = queryProducts(products, { sort: "featured" }).filter((p) => p.featured).slice(0, 4);
+  const picked = (layout?.featuredProductIds ?? []).map((id) => products.find((p) => p.id === id)).filter(Boolean);
+  const featured = (picked.length ? picked : queryProducts(products, { sort: "featured" }).filter((p) => p.featured)).slice(0, 4);
+  const banners = show("showBanners") ? await loadBanners().catch(() => []) : [];
+  const city = (s.address ?? "").split(",").pop().trim();
+  const phoneDigits = (s.phone ?? "").replace(/\D/g, "").replace(/^0/, "").replace(/^92/, "");
 
   const sections = document.createElement("div");
   sections.innerHTML = `
-  <section class="section categories" id="categories" aria-labelledby="cat-title">
+  ${
+    banners.length
+      ? `<section class="section banners" aria-label="Announcements">${banners
+          .map(
+            (b) => `<div class="banner"><p class="banner__title">${esc(b.title)}</p>${b.subtitle ? `<p class="banner__text">${esc(b.subtitle)}</p>` : ""}${b.linkUrl ? `<a class="btn btn--ghost" href="${esc(b.linkUrl)}"${b.linkUrl.startsWith("http") ? ' target="_blank" rel="noopener noreferrer"' : ""}>${esc(b.linkLabel || "Learn more")}</a>` : ""}</div>`,
+          )
+          .join("")}</section>`
+      : ""
+  }
+  ${
+    !products.length
+      ? `<section class="section"><div class="empty"><p class="empty__title">Our collection is being prepared.</p><p class="empty__text">Please check back soon${s.phone ? ` or call us on ${esc(s.phone)}` : ""}.</p></div></section>`
+      : ""
+  }
+  ${layout?.introTitle ? `<section class="section"><h2 class="section__title">${esc(layout.introTitle)}</h2>${layout.introText ? `<p class="page-lede">${esc(layout.introText)}</p>` : ""}</section>` : ""}
+  ${
+    show("showCategories") && categories.length
+      ? `<section class="section categories" id="categories" aria-labelledby="cat-title">
     <header class="section__head">
       <p class="kicker"><span class="kicker__line"></span>The Collection</p>
       <h2 class="section__title" id="cat-title">Shop by <em>category</em></h2>
@@ -35,24 +59,28 @@ export default async function home({ outlet }) {
     <div class="cat-grid">
       ${categories
         .map((c, i) => {
-          const art = CATEGORY_ART[c.id] ?? CATEGORY_ART.sneakers;
+          const art = CATEGORY_ART[c.slug] ?? CATEGORY_ART.sneakers;
           const count = products.filter((p) => p.category === c.id).length;
           return `
-          <a class="cat-tile cat-tile--${i + 1}" href="/shop/${c.id}">
+          <a class="cat-tile cat-tile--${i + 1}" href="/shop/${esc(c.slug)}">
             <span class="cat-tile__no">0${i + 1}</span>
             <span class="cat-tile__art">${illustration(art.style, art.color, { label: "" })}</span>
             <span class="cat-tile__text">
               <span class="cat-tile__name">${esc(c.name)}</span>
-              <span class="cat-tile__blurb">${esc(c.blurb)}</span>
-              <span class="cat-tile__cta">Shop ${esc(c.name.toLowerCase())} · ${count} styles <span class="cat-tile__arrow" aria-hidden="true"></span></span>
+              ${c.blurb ? `<span class="cat-tile__blurb">${esc(c.blurb)}</span>` : ""}
+              <span class="cat-tile__cta">Shop ${esc(c.name.toLowerCase())} · ${count} ${count === 1 ? "style" : "styles"} <span class="cat-tile__arrow" aria-hidden="true"></span></span>
             </span>
           </a>`;
         })
         .join("")}
     </div>
-  </section>
+  </section>`
+      : ""
+  }
 
-  <section class="section rail" aria-labelledby="rail-title">
+  ${
+    products.length && (show("showNewArrivals") || show("showFeatured"))
+      ? `<section class="section rail" aria-labelledby="rail-title">
     <header class="section__head section__head--split">
       <div>
         <p class="kicker"><span class="kicker__line"></span>Selected pairs</p>
@@ -64,9 +92,11 @@ export default async function home({ outlet }) {
       </div>
     </header>
     <div role="tabpanel" id="panel-new" aria-labelledby="tab-new">${grid(newest)}</div>
-    <div role="tabpanel" id="panel-featured" aria-labelledby="tab-featured" hidden>${grid(featured)}</div>
+    <div role="tabpanel" id="panel-featured" aria-labelledby="tab-featured" hidden>${featured.length ? grid(featured) : `<p class="muted">Nothing is featured right now.</p>`}</div>
     <a class="btn btn--ghost section__more" href="/shop">View all footwear</a>
-  </section>
+  </section>`
+      : ""
+  }
 
   <section class="section story" aria-labelledby="story-title">
     <div class="story__mark" aria-hidden="true">
@@ -74,9 +104,8 @@ export default async function home({ outlet }) {
     </div>
     <div class="story__text">
       <p class="kicker"><span class="kicker__line"></span>The Store</p>
-      <h2 class="section__title" id="story-title">${esc(STORE.name || "The store")}, <em>${esc(STORE.contact.address.split(",").pop().trim() || "in the owner’s words")}.</em></h2>
-      ${STORE.contact.address ? `<p class="story__visit">Visit us on <strong>${esc(STORE.contact.address)}</strong>${STORE.contact.phone ? ` · <a class="text-link" href="tel:+92${esc(STORE.contact.phone.replace(/\D/g, "").replace(/^0/, ""))}">${esc(STORE.contact.phone)}</a>` : ""}${STORE.contact.instagram ? ` · <a class="text-link" href="${esc(STORE.contact.instagram)}" target="_blank" rel="noopener noreferrer">Instagram</a>` : ""}</p>` : ""}
-      ${placeholderNote("The store’s own story — how it began and how it chooses its shoes — will go here, written with the owner rather than invented.")}
+      <h2 class="section__title" id="story-title">${esc(s.storeName || "Our store")}${city ? `, <em>${esc(city)}.</em>` : ""}</h2>
+      ${s.address ? `<p class="story__visit">Visit us on <strong>${esc(s.address)}</strong>${phoneDigits ? ` · <a class="text-link" href="tel:+92${phoneDigits}">${esc(s.phone)}</a>` : ""}${s.instagram ? ` · <a class="text-link" href="${esc(s.instagram)}" target="_blank" rel="noopener noreferrer">Instagram</a>` : ""}</p>` : ""}
       <a class="btn btn--ghost" href="/about">About the store</a>
     </div>
   </section>
@@ -88,12 +117,11 @@ export default async function home({ outlet }) {
     </header>
     <ol class="how__steps">
       <li><span class="how__no">I</span><h3>Choose your pair</h3><p>Pick a style, colour and size. Your bag is kept on this device as you browse.</p></li>
-      <li><span class="how__no">II</span><h3>Review your order</h3><p>Check items and totals, then add your contact and delivery details.</p></li>
-      <li><span class="how__no">III</span><h3>Confirm on WhatsApp</h3><p>Your order opens in WhatsApp, ready to send. The store replies to confirm availability, delivery and acceptance.</p></li>
+      <li><span class="how__no">II</span><h3>Check out</h3><p>Sign in, enter your delivery details and review the exact total, including delivery.</p></li>
+      <li><span class="how__no">III</span><h3>Pay on delivery</h3><p>Your order is placed on the spot and you pay in cash when it arrives. Track it from your account.</p></li>
     </ol>
     <div class="how__info">
-      <p><strong>Delivery</strong> ${STORE.deliveryFee === null ? "Charges and timelines are confirmed by the store on WhatsApp." : "See shipping details for charges and timelines."} <a class="text-link" href="/shipping">Shipping &amp; delivery</a></p>
-      <p><strong>Sizing</strong> EU sizes throughout. Unsure? <a class="text-link" href="/size-guide">Size guide</a></p>
+      <p><strong>Delivery</strong> Charges depend on your city and are shown before you order. <a class="text-link" href="/shipping">Shipping &amp; delivery</a></p>
       <p><strong>Questions</strong> We’re happy to help before you order. <a class="text-link" href="/contact">Contact</a></p>
     </div>
   </section>`;

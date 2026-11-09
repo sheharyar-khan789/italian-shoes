@@ -7,9 +7,10 @@ import { isNew, categoryById } from "../app/state.js";
 export const arrow = `<span class="btn__arrow" aria-hidden="true"></span>`;
 
 export function priceTag(product) {
-  if (!onSale(product)) return `<span class="price">${formatPKR(product.price)}</span>`;
+  const from = product.priceMax > product.price ? "From " : "";
+  if (!onSale(product)) return `<span class="price">${from}${formatPKR(product.price)}</span>`;
   return `<span class="price price--sale">
-    <span class="visually-hidden">Sale price </span>${formatPKR(product.price)}
+    <span class="visually-hidden">Sale price </span>${from}${formatPKR(product.price)}
     <s class="price__was"><span class="visually-hidden">Regular price </span>${formatPKR(product.compareAt)}</s>
     <span class="price__save">Save ${discountPercent(product)}%</span>
   </span>`;
@@ -17,6 +18,10 @@ export function priceTag(product) {
 
 /* ───────── Product card ───────── */
 
+/**
+ * @param {any} product
+ * @param {{ colorId?: string, eager?: boolean }} [opts]
+ */
 export function productCard(product, { colorId, eager = false } = {}) {
   const color = product.colors.find((c) => c.id === colorId) ?? product.colors.find(colorInStock) ?? product.colors[0];
   const soldOut = !inStock(product);
@@ -96,12 +101,13 @@ export function colorOptions(product, colorId, name = "color") {
 
 export function sizeOptions(product, color, size, name = "size") {
   return product.sizes
+    .filter((s) => s.id in (color.stock ?? {}))
     .map((s) => {
-      const left = maxQtyFor(color, s);
+      const left = maxQtyFor(color, s.id);
       return `
       <label class="size-opt${left ? "" : " is-soldout"}">
-        <input type="radio" name="${name}" value="${s}" ${s === size ? "checked" : ""} ${left ? "" : "disabled"} />
-        <span>${s}</span>
+        <input type="radio" name="${name}" value="${esc(s.id)}" ${s.id === size ? "checked" : ""} ${left ? "" : "disabled"} />
+        <span>${esc(s.label)}</span>
         ${left ? "" : `<span class="visually-hidden">sold out</span>`}
       </label>`;
     })
@@ -130,4 +136,23 @@ export function emptyState({ title, text, cta = "Explore the Collection", href =
 
 export function placeholderNote(text) {
   return `<p class="placeholder-note"><span>Placeholder</span>${text}</p>`;
+}
+
+/**
+ * Waits for the shop data. When it can't be loaded, shows an honest error with a retry button
+ * (never sample products) and returns false.
+ * @param {HTMLElement} outlet @param {() => void} retry
+ */
+export async function catalogGate(outlet, retry) {
+  const { whenCatalog, reloadCatalog } = await import("../app/state.js");
+  const c = await whenCatalog();
+  if (!c.error) return true;
+  outlet.innerHTML = `<div class="page"><div class="empty"><p class="empty__title">We couldn’t load the shop.</p>
+    <p class="empty__text">Please check your connection and try again.</p>
+    <button type="button" class="btn btn--primary" data-retry-catalog><span>Try again</span></button></div></div>`;
+  outlet.querySelector("[data-retry-catalog]").addEventListener("click", () => {
+    outlet.innerHTML = `<div class="page">${skeletonGrid(4)}</div>`;
+    reloadCatalog().then(retry);
+  });
+  return false;
 }

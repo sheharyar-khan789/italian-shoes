@@ -1,20 +1,43 @@
-import { loadCatalog } from "../data/catalog.js";
+import { loadStore } from "../data/store.js";
 import { createCartStore, resolveLines, cartTotals } from "../lib/cart.js";
-import { STORE } from "../config.js";
 
 export const cart = createCartStore();
 
-let catalog = { categories: [], products: [], colorFamilies: [] };
-export const catalogReady = loadCatalog().then((c) => (catalog = c));
+let catalog = { categories: [], products: [], colorFamilies: [], home: null, error: false };
+let settings = {};
+/** @type {Promise<any>} */
+let ready;
+
+/** Loads the shop from the database. On failure `error` is set so views can offer a retry. */
+export function reloadCatalog() {
+  ready = loadStore()
+    .then((c) => {
+      catalog = { ...c, error: false };
+      settings = c.settings ?? {};
+      return catalog;
+    })
+    .catch(() => {
+      catalog = { categories: [], products: [], colorFamilies: [], home: null, error: true };
+      return catalog;
+    });
+  return ready;
+}
+reloadCatalog();
+export const catalogReady = ready.then(() => undefined);
+/** Await this in views: it always points at the latest load (after a retry too). */
+export const whenCatalog = () => ready;
 export const getCatalog = () => catalog;
+export const getSettings = () => settings;
 
 export const productBySlug = (slug) => catalog.products.find((p) => p.slug === slug);
+export const productById = (id) => catalog.products.find((p) => p.id === id);
 export const categoryById = (id) => catalog.categories.find((c) => c.id === id);
+export const categoryBySlug = (slug) => catalog.categories.find((c) => c.slug === slug);
 
-/** Cart joined with catalogue data + totals. */
+/** Cart joined with catalogue data + subtotal. */
 export function cartSnapshot() {
   const lines = resolveLines(cart.get(), catalog.products);
-  return { lines, totals: cartTotals(lines, STORE.deliveryFee), hasUnavailable: lines.some((l) => !l.available) };
+  return { lines, totals: cartTotals(lines), hasUnavailable: lines.some((l) => !l.available) };
 }
 
 // Keep tabs in sync: a bag changed in one tab updates the others.
@@ -46,5 +69,5 @@ export const recentProducts = (exclude) =>
     .map(productBySlug)
     .filter(Boolean);
 
-/** Products added within the last 45 days count as "New". */
-export const isNew = (product, now = new Date()) => (now - new Date(product.added)) / 864e5 <= 45;
+/** New: flagged by the owner, or published within the last 45 days. */
+export const isNew = (product, now = new Date()) => product.isNewArrival || (now.getTime() - new Date(product.added).getTime()) / 864e5 <= 45;

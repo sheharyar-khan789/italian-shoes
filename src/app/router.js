@@ -39,7 +39,7 @@ async function render({ restore }) {
 
   if (typeof cleanup === "function") cleanup();
   cleanup = null;
-  document.querySelectorAll("dialog[open]").forEach((d) => d.close());
+  document.querySelectorAll("dialog[open]").forEach((d) => /** @type {HTMLDialogElement} */ (d).close());
 
   document.body.dataset.route = r.name;
   outlet.replaceChildren();
@@ -56,11 +56,13 @@ async function render({ restore }) {
 
 export function startRouter() {
   document.addEventListener("click", (e) => {
-    const a = e.target.closest("a[href]");
+    const a = /** @type {HTMLAnchorElement | null} */ (/** @type {Element} */ (e.target).closest("a[href]"));
     if (!a || e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
     if (a.target === "_blank" || a.hasAttribute("download")) return;
     const url = new URL(a.href, location.href);
     if (url.origin !== location.origin) return;
+    // The admin is a separate page (admin.html): let the browser load it normally.
+    if (/^\/admin(\/|$)/.test(url.pathname)) return;
     e.preventDefault();
     // Same page, only a hash: smooth-scroll instead of re-rendering.
     if (url.pathname === location.pathname && url.search === location.search && url.hash) {

@@ -29,10 +29,10 @@ export const PAYMENT_METHODS = /** @type {const} */ (["cod"]);
 export const placeOrderSchema = z.object({
   idempotencyKey: z.string().uuid(),
   items: z
-    .array(z.object({ variantId: docId, qty: z.number().int().min(1).max(MAX_QTY_PER_LINE) }))
+    .array(z.object({ productId: docId, variantId: docId, qty: z.number().int().min(1).max(MAX_QTY_PER_LINE) }))
     .min(1, "Your bag is empty")
     .max(MAX_LINES)
-    .refine((items) => new Set(items.map((i) => i.variantId)).size === items.length, "Duplicate items"),
+    .refine((items) => new Set(items.map((i) => `${i.productId}/${i.variantId}`)).size === items.length, "Duplicate items"),
   customer: customerDetailsSchema,
   address: addressSchema.omit({ label: true, isDefault: true }),
   shippingMethodId: docId,

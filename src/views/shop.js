@@ -1,7 +1,7 @@
-import { catalogReady, getCatalog, categoryById } from "../app/state.js";
+import { getCatalog, categoryBySlug } from "../app/state.js";
 import { queryProducts, PRICE_BANDS, SORTS, allSizes } from "../lib/shop.js";
 import { esc, pluralize } from "../lib/format.js";
-import { grid, skeletonGrid, bindCardSwatches, emptyState } from "../ui/components.js";
+import { grid, skeletonGrid, bindCardSwatches, emptyState, catalogGate } from "../ui/components.js";
 import { openSheet, closeSheet } from "../ui/layout.js";
 import { navigate } from "../app/router.js";
 
@@ -12,21 +12,22 @@ const AVAILABILITY = [
 const PAGE_SIZE = 12;
 
 const readFilters = (query) => ({
-  sizes: query.getAll("size").map(Number).filter(Boolean),
+  sizes: query.getAll("size"),
   colors: query.getAll("color"),
   price: query.getAll("price"),
   avail: query.getAll("avail").filter((v) => AVAILABILITY.some((a) => a.id === v)),
   sort: SORTS.some((s) => s.id === query.get("sort")) ? query.get("sort") : "featured",
 });
 
-export default async function shop({ outlet, params, query }) {
-  const categoryId = params[0];
+export default async function shop(ctx) {
+  const { outlet, params, query } = ctx;
+  const categorySlug = params[0];
   outlet.innerHTML = `<div class="page shop">${skeletonGrid()}</div>`;
-  await catalogReady;
+  if (!(await catalogGate(outlet, () => shop(ctx)))) return;
   const { products, categories, colorFamilies } = getCatalog();
 
-  const category = categoryId ? categoryById(categoryId) : null;
-  if (categoryId && !category) return navigate("/shop", { replace: true });
+  const category = categorySlug ? categoryBySlug(categorySlug) : null;
+  if (categorySlug && !category) return navigate("/shop", { replace: true });
   document.title = `${category ? category.name : "All Footwear"} — Shop`;
 
   const filters = readFilters(query);
@@ -37,11 +38,11 @@ export default async function shop({ outlet, params, query }) {
   const filterForm = (idPrefix) => `
     <form class="filters" data-filters aria-label="Filter products">
       <fieldset class="filter-group">
-        <legend>Size <span class="muted">(EU, in stock)</span></legend>
+        <legend>Size <span class="muted">(in stock)</span></legend>
         <div class="size-opts size-opts--filter">
           ${sizes
             .map(
-              (s) => `<label class="size-opt"><input type="checkbox" name="size" value="${s}" ${filters.sizes.includes(s) ? "checked" : ""}/><span>${s}</span></label>`,
+              (s) => `<label class="size-opt"><input type="checkbox" name="size" value="${esc(s.id)}" ${filters.sizes.includes(s.id) ? "checked" : ""}/><span>${esc(s.label)}</span></label>`,
             )
             .join("")}
         </div>
@@ -75,12 +76,12 @@ export default async function shop({ outlet, params, query }) {
     <header class="page-head">
       <p class="kicker"><span class="kicker__line"></span>${category ? "Category" : "The Collection"}</p>
       <h1 class="page-title">${category ? esc(category.name) : filters.avail.includes("sale") ? "On <em>Sale</em>" : "All <em>Footwear</em>"}</h1>
-      <p class="page-lede">${category ? esc(category.blurb) : "Sneakers, formal and casual shoes, sandals, women’s and kids’ styles."}</p>
+      ${category?.blurb ? `<p class="page-lede">${esc(category.blurb)}</p>` : ""}
     </header>
 
     <nav class="cat-nav" aria-label="Categories">
       <a href="/shop${query.toString() ? `?${query}` : ""}" ${!category ? 'aria-current="page"' : ""}>All</a>
-      ${categories.map((c) => `<a href="/shop/${c.id}${query.toString() ? `?${query}` : ""}" ${category?.id === c.id ? 'aria-current="page"' : ""}>${esc(c.name)}</a>`).join("")}
+      ${categories.map((c) => `<a href="/shop/${esc(c.slug)}${query.toString() ? `?${query}` : ""}" ${category?.id === c.id ? 'aria-current="page"' : ""}>${esc(c.name)}</a>`).join("")}
     </nav>
 
     <div class="shop__layout">
@@ -107,7 +108,7 @@ export default async function shop({ outlet, params, query }) {
 
   const labelFor = (name, value) =>
     name === "size"
-      ? `EU ${value}`
+      ? sizes.find((s) => s.id === value)?.label ?? "Size"
       : name === "color"
         ? colorFamilies.find((f) => f.id === value)?.name
         : name === "avail"
@@ -133,12 +134,14 @@ export default async function shop({ outlet, params, query }) {
     count.textContent = pluralize(list.length, "style");
     results.innerHTML = list.length
       ? renderPage(list)
-      : emptyState({
-          title: "No styles match these filters.",
-          text: "Try removing a size or colour, or browse the full collection.",
-          cta: "Clear filters",
-          href: category ? `/shop/${category.id}` : "/shop",
-        });
+      : !scope.length
+        ? `<div class="empty"><p class="empty__title">${category ? "Nothing in this category yet." : "Our collection is being prepared."}</p><p class="empty__text">Please check back soon.</p></div>`
+        : emptyState({
+            title: "No styles match these filters.",
+            text: "Try removing a size or colour, or browse the full collection.",
+            cta: "Clear filters",
+            href: category ? `/shop/${category.slug}` : "/shop",
+          });
 
     const chips = [
       ...filters.sizes.map((v) => ["size", v]),
@@ -170,9 +173,8 @@ export default async function shop({ outlet, params, query }) {
   const syncForms = () => {
     document.querySelectorAll("[data-filters]").forEach((form) => {
       form.querySelectorAll("input").forEach((input) => {
-        const v = input.name === "size" ? Number(input.value) : input.value;
         const arr = arrFor(input.name);
-        input.checked = arr.includes(v);
+        input.checked = arr.includes(input.value);
       });
     });
   };
@@ -182,7 +184,7 @@ export default async function shop({ outlet, params, query }) {
     if (!input.name) return;
     const arr = arrFor(input.name);
     if (!arr) return;
-    const v = input.name === "size" ? Number(input.value) : input.value;
+    const v = input.value;
     const i = arr.indexOf(v);
     if (input.checked && i < 0) arr.push(v);
     if (!input.checked && i >= 0) arr.splice(i, 1);
@@ -217,7 +219,7 @@ export default async function shop({ outlet, params, query }) {
     if (chip) {
       const [n, v] = chip.dataset.removeFilter.split(":");
       const arr = arrFor(n);
-      const i = arr.indexOf(n === "size" ? Number(v) : v);
+      const i = arr.indexOf(v);
       if (i >= 0) arr.splice(i, 1);
       update();
       syncForms();

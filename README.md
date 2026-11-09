@@ -1,46 +1,40 @@
-# Footwear storefront — client demo
+# Italian Shoes — online store
 
-A luxury footwear storefront built around the approved "Studio Edition" 3D hero, with a working bag and WhatsApp click-to-chat checkout.
+The online store and admin panel for **Italian Shoes** (Main GT Road, Sarai Alamgir). A customer-facing storefront with the approved 3D hero, plus an admin panel for the owner and staff. Everything the shop sells, charges and says comes from the database; nothing is hard-coded.
 
-Vanilla JavaScript + Vite, Three.js for the hero only. No backend; no payment gateway; no customer accounts.
+Vanilla JavaScript + Vite (Three.js for the hero only) · Firebase: Auth, Firestore, Cloud Functions, Storage, Hosting.
 
-## Run it
+## Run it locally (no real data is touched)
 
 ```bash
 npm install
-npm run dev        # http://localhost:5181
-npm test           # unit tests (Node's built-in runner — no extra dependency)
-npm run build      # production build → dist/
+npm run emulators   # Firebase emulators (needs Java 21+); UI at http://localhost:4000
+npm run dev         # storefront http://localhost:5181 · admin http://localhost:5181/admin
+npm run check       # secret scan, lint, type-check, unit tests, production build
+npm run test:emulator   # security-rules and Cloud Functions tests against the emulators
 ```
 
-## What the owner needs to supply
+`npm run dev` talks to the emulators, never to the live project.
 
-Everything business-specific is in **`src/config.js`**. Until filled in, the site shows neutral placeholders or "To be confirmed".
+## How ordering works
 
-| Setting | Where | Current state |
-| --- | --- | --- |
-| **WhatsApp order number** | `.env.local` → `VITE_WHATSAPP_BUSINESS_NUMBER=92XXXXXXXXXX` (or `WHATSAPP_BUSINESS_NUMBER` in `src/config.js`) | **Not set** — ordering is disabled and customers see a notice; they can still preview the message |
-| Brand name / logo | `STORE.name`, `STORE.logo` (put the file in `public/brand/`) | "Italian Shoes" wordmark (from Instagram); no logo file yet |
-| Delivery charge | `STORE.deliveryFee` (number in PKR, `0` = free) | `null` → "To be confirmed" |
-| Contact details | `STORE.contact` | Phone 0342-7530608, Main GT Road Sarai Alamgir, Instagram — from @italianshoesofficial. Email and hours not supplied |
-| Policies | wording in `src/views/pages.js`, then `STORE.policiesConfirmed = true` | Placeholder templates with a visible notice |
-| Store story | `src/views/pages.js` (About) and the homepage story section in `src/views/home.js` | Placeholder |
-| **Catalogue** | `src/data/catalog.js` | **Demo data** — sample names, prices and stock |
-| Product photos | add URLs to each colour's `images: []` in the catalogue (files in `public/products/`) | Stylised illustrations stand in |
+1. The shop reads **published** products, categories, colours, sizes, store settings and owner-written content from Firestore. An empty database shows an empty shop with a clear message (never sample products).
+2. The bag stores only product, colour, size and quantity in the browser. Prices and stock are always re-read.
+3. Checkout requires an account. After the customer enters a city, `quoteCheckout` returns the exact delivery options, discount and total from the server.
+4. `placeOrder` re-prices everything on the server in one transaction (no overselling), takes the stock, applies any coupon, records Cash on Delivery as *pending*, and returns the order number. The browser can't send or change a price, a discount or a delivery charge.
+5. The customer follows the order under **Account → Orders**; staff manage it in the admin.
 
-The WhatsApp number must be international format, digits only — e.g. `0300 1234567` → `923001234567`.
+There is no WhatsApp ordering and no online payment gateway; payment is cash on delivery.
 
-## How the order flow works
+## What the owner sets up (in the admin, not in code)
 
-1. Customer picks colour + size (required) and quantity; the bag merges identical variants and keeps different sizes/colours as separate lines. Quantities are capped by stock.
-2. The bag (product id, colour, size, qty only) is saved in `localStorage`; prices and names are always re-read from the catalogue.
-3. Checkout collects name, phone, city, area, address (required) and WhatsApp number, delivery instructions, notes (optional). These live in memory only — never in browser storage.
-4. On submit the form is validated (Pakistani mobile numbers), an order reference is generated (`ORD-YYMMDD-XXXXX`), and the message is built by `buildOrderMessage()` in `src/lib/order.js`.
-5. `https://wa.me/<number>?text=<encodeURIComponent(message)>` opens in a new tab. The bag is **not** cleared and nothing is marked confirmed — the page explains the customer must press Send in WhatsApp, offers a fallback link and a copy button, and lets the customer empty their bag themselves once sent.
+Store settings, delivery methods and charges, categories/colours/sizes, products with photos and stock, coupons, banners, FAQs and policy pages (About, Shipping, Returns, Privacy, Terms). Until delivery is set up, customers can't check out, and policy pages say "not published yet" rather than showing made-up text.
 
-## Hosting note
+## Documentation
 
-This is a single-page app using real URLs (`/shop`, `/product/...`). Static hosts need a rewrite of all paths to `index.html` (Netlify `_redirects`: `/* /index.html 200`; Vercel: a rewrite in `vercel.json`). `npm run dev` and `vite preview` already handle this.
+- `docs/ARCHITECTURE.md` — how the pieces fit together
+- `docs/OWNER-SETUP.md` — first-time owner setup and go-live steps
+- `SECURITY.md` — security design and the Google Cloud checklist
 
 ## Credits
 

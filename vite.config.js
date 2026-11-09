@@ -15,10 +15,31 @@ const securityHeaders = Object.fromEntries(
 securityHeaders["Content-Security-Policy"] = securityHeaders["Content-Security-Policy"].replace("; upgrade-insecure-requests", "");
 delete securityHeaders["Strict-Transport-Security"];
 
+/** /admin and /admin/* serve admin.html (same as the Firebase Hosting rewrite). */
+const adminRoute = {
+  name: "admin-route",
+  configureServer(server) {
+    server.middlewares.use((req, _res, next) => {
+      if (req.url && /^\/admin(\/|\?|$)/.test(req.url)) req.url = "/admin.html";
+      next();
+    });
+  },
+  configurePreviewServer(server) {
+    server.middlewares.use((req, _res, next) => {
+      if (req.url && /^\/admin(\/|\?|$)/.test(req.url)) req.url = "/admin.html";
+      next();
+    });
+  },
+};
+
 export default defineConfig({
+  plugins: [adminRoute],
   preview: { port: 5182, strictPort: true, headers: securityHeaders },
   build: {
     // No source maps in production: they would publish readable source for the whole app.
     sourcemap: false,
+    rollupOptions: {
+      input: { main: "index.html", admin: "admin.html" },
+    },
   },
 });

@@ -215,6 +215,11 @@ export function illustration(style, color, { label = "", flip = false, className
  * No inline event handlers (they would be blocked by the Content Security Policy);
  * load/error are handled once, page-wide, by bindMediaEvents().
  */
+/**
+ * @param {any} product
+ * @param {any} color
+ * @param {{ index?: number, eager?: boolean, label?: string }} [opts]
+ */
 export function productMedia(product, color, { index = 0, eager = false, label } = {}) {
   const alt = label ?? `${product.name} in ${color.name}`;
   const src = color.images?.[index];

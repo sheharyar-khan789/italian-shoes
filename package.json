@@ -9,7 +9,7 @@
     "preview": "vite preview",
     "pretest": "node functions/scripts/sync-shared.mjs",
     "test": "node --test \"tests/unit/*.test.js\"",
-    "test:emulator": "node scripts/emulators.mjs exec \"node --test --test-concurrency=1 tests/emulator/\"",
+    "test:emulator": "node scripts/emulators.mjs exec \"node --test --test-concurrency=1 tests/emulator/*.test.js\"",
     "emulators": "node scripts/emulators.mjs start",
     "migrate": "node functions/scripts/migrate.mjs",
     "lint": "eslint .",
@@ -28,11 +28,17 @@
     "@types/node": "26.6.5",
     "eslint": "10.13.0",
     "firebase-admin": "14.5.0",
+    "firebase-tools": "15.34.0",
     "globals": "17.13.0",
     "typescript": "6.0.3",
     "vite": "^6.3.5"
   },
   "engines": {
     "node": ">=22"
+  },
+  "overrides": {
+    "@firebase/firestore": {
+      "@grpc/grpc-js": "1.13.7"
+    }
   }
 }

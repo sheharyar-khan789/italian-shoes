@@ -88,7 +88,15 @@ test("security rules start from deny-all", () => {
   for (const file of ["firestore.rules", "storage.rules"]) {
     const rules = readFileSync(file, "utf8");
     assert.match(rules, /allow read, write: if false;/, file);
-    assert.ok(!/allow (read|write)[^;]*: if true/.test(rules), `${file}: never "if true"`);
+    // The only unconditional allow anywhere: reading the public store settings.
+    const open = [...rules.matchAll(/match\s+(\S+)\s*\{[^{}]*?allow ([a-z, ]+): if true;/g)].map((m) => `${m[1]} ${m[2]}`);
+    // Public reference data, the owner-written home-page layout (content/home) and processed product photos only. Anything else fails this test.
+    const expected = {
+      "firestore.rules": ["/settings/public read", "/categories/{id} read", "/brands/{id} read", "/colors/{id} read", "/sizes/{id} read", "/content/{doc} read"],
+      "storage.rules": ["/products/{productId}/images/{file} read"],
+    }[file];
+    assert.deepEqual(open, expected, `${file}: unexpected "if true"`);
+    assert.ok(!/allow [a-z, ]*(write|create|update|delete)[a-z, ]*: if true/.test(rules), `${file}: no unconditional writes`);
   }
 });
 

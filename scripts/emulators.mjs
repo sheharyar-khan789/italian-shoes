@@ -12,7 +12,8 @@ import { spawn } from "node:child_process";
 import { existsSync, readdirSync } from "node:fs";
 import path from "node:path";
 
-const FIREBASE_TOOLS = "firebase-tools@15.34.0";
+// Pinned devDependency (package.json); resolved from node_modules/.bin.
+const FIREBASE_TOOLS = "firebase";
 const PROJECT = "demo-italianshoes";
 const [mode, command] = process.argv.slice(2);
 
@@ -22,6 +23,9 @@ if (!["start", "exec"].includes(mode) || (mode === "exec" && !command)) {
 }
 
 const env = { ...process.env };
+// Loading the functions (with the image library) can take longer than the CLI's 10-second default
+// on a busy machine, which made the Functions emulator fail to start intermittently.
+env.FUNCTIONS_DISCOVERY_TIMEOUT ??= "90";
 
 if (process.platform === "win32") {
   // Prefer the newest Eclipse Adoptium JDK (21+) if one is installed.
@@ -40,10 +44,25 @@ if (process.platform === "win32") {
   env.JAVA_TOOL_OPTIONS = [env.JAVA_TOOL_OPTIONS, "-Djdk.net.unixdomain.tmpdir=C:\\Windows\\Temp"].filter(Boolean).join(" ");
 }
 
-/** @param {string} cmd @param {string[]} args */
+/**
+ * Quote one argument for the shell (Windows needs a shell to start npx.cmd). Shell escaping rules
+ * differ between cmd.exe and sh, so instead of escaping we refuse any shell metacharacter outright.
+ */
+const quote = (arg) => {
+  if (/^[\w@./:=-]+$/.test(arg)) return arg;
+  // Inside double quotes, "*" is left alone by sh and cmd.exe; node --test expands it itself.
+  if (!/^[\w@./:=\- *]+$/.test(arg)) throw new Error(`Refusing to pass unsafe characters to the shell: ${arg}`);
+  return `"${arg}"`;
+};
+
+/**
+ * Runs a fixed command. Arguments are quoted explicitly and joined into one command line, rather
+ * than handing an args array to a shell unescaped (Node's DEP0190).
+ * @param {string} cmd @param {string[]} args
+ */
 const run = (cmd, args) =>
   new Promise((resolve) => {
-    const child = spawn(cmd, args, { stdio: "inherit", env, shell: process.platform === "win32" });
+    const child = spawn([cmd, ...args].map(quote).join(" "), { stdio: "inherit", env, shell: true });
     child.on("exit", (code) => resolve(code ?? 1));
   });
 
@@ -51,6 +70,6 @@ const run = (cmd, args) =>
 const synced = await run("node", ["functions/scripts/sync-shared.mjs"]);
 if (synced !== 0) process.exit(synced);
 
-const args = ["--yes", FIREBASE_TOOLS, mode === "start" ? "emulators:start" : "emulators:exec", "--project", PROJECT];
-if (mode === "exec") args.push(JSON.stringify(command));
+const args = ["--no-install", FIREBASE_TOOLS, mode === "start" ? "emulators:start" : "emulators:exec", "--project", PROJECT];
+if (mode === "exec") args.push(command);
 process.exit(await run("npx", args));

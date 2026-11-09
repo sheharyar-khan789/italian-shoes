@@ -46,16 +46,18 @@ export const PAYMENT_STATUSES = /** @type {const} */ ([
   "failed",
   "partially_refunded",
   "refunded",
+  "void", // order cancelled/returned before any money was collected: nothing is owed
 ]);
 
 /** @type {Record<string, string[]>} */
 export const PAYMENT_TRANSITIONS = {
-  pending: ["collected", "paid", "failed"],
+  pending: ["collected", "paid", "failed", "void"],
   collected: ["partially_refunded", "refunded"],
   paid: ["partially_refunded", "refunded"],
   failed: ["pending"],
   partially_refunded: ["partially_refunded", "refunded"],
   refunded: [],
+  void: [],
 };
 
 /** @param {string} from @param {string} to */

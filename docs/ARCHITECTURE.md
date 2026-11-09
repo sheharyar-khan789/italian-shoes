@@ -3,9 +3,11 @@
 Italian Shoes e-commerce platform. Vite + vanilla JavaScript in the browser, Firebase on the server
 (Auth, Firestore, Cloud Functions, Storage, Hosting).
 
-> **Status (end of Phase 2):** the Firebase foundation is in place — configuration, security rules,
-> shared validation and money code, the Cloud Functions skeleton, migrations and tests. The
-> storefront still runs on its old demo catalogue until Phase 9. Items marked *(planned)* do not
+> **Status (end of Phase 6):** Firebase foundation (2), accounts and staff roles (3), admin dashboard
+> shell (4), the catalogue and stock (5), and orders (6): server-side order placement, status
+> management, tracking, invoices, CSV export and customer order history. The storefront's own
+> cart and checkout screens still run on the demo catalogue until Phase 9, when they are rewired
+> to `quoteCheckout` / `placeOrder`. Items marked *(planned)* do not
 > exist yet; see `docs/PHASE-1-AUDIT-AND-PLAN.md` for when each arrives.
 
 ---
@@ -19,7 +21,15 @@ Italian Shoes e-commerce platform. Vite + vanilla JavaScript in the browser, Fir
 | `src/app/` | Router, app state, and **`firebase.js`** (lazy SDK setup; points at the emulators in development). `firebase-config.js` holds the public web config. |
 | `src/views/`, `src/ui/`, `src/lib/` | Current storefront pages, components and display logic. Moved into `src/storefront/` when rewired *(Phase 9)*. |
 | `src/scene.js`, `src/ui/hero.js` | The approved 3D hero. **Do not change the design.** |
-| `src/admin/` *(planned, Phase 4)* | Admin dashboard, built as a separate entry (`admin.html`) so customers never download admin code. |
+| `src/app/session.js` | The browser's single gateway to Firebase Auth and the customer's own documents (sign-up, sign-in, reset, profile, addresses, claim ownership). |
+| `src/views/account.js`, `src/ui/forms.js` | Account pages and shared form helpers. |
+| `admin.html`, `src/admin/main.js` | Admin entry, built separately so customers never download admin code: staff sign-in, first-time Owner setup, then the dashboard. |
+| `src/admin/shell.js`, `modules.js` | Dashboard frame (sidebar, top bar, notification count, `/admin/*` router) and the module list with the permission each needs. Unbuilt modules are shown as disabled "Soon" items. |
+| `src/admin/ui/kit.js` | Shared admin UI: toast, confirm dialog, loading/empty/error states, stat card, paginated table. |
+| `src/admin/data.js` | All admin reads/writes. Reads go to the server (never a stale cache) with a 12-second timeout. |
+| `src/admin/views/` | Overview, notifications, activity log, store settings, categories & sizes, products (list + editor), inventory, orders (list + order page). |
+| `src/views/accountOrders.js`, `src/app/ordersData.js` | Customer order history and order page (tracking, cancel), printable invoice (`src/ui/invoice.js`). |
+| `src/admin/catalogData.js` | Admin reads for the catalogue and the `call()` helper for Cloud Functions; photo upload with progress. |
 | `shared/` | Code used by **both** the browser and Cloud Functions. One copy of every business rule. |
 | `shared/money.js` | Integer-paisa money helpers and PKR formatting. |
 | `shared/phone.js` | Pakistani mobile number validation and normalisation. |
@@ -32,7 +42,20 @@ Italian Shoes e-commerce platform. Vite + vanilla JavaScript in the browser, Fir
 | `functions/http/` | HTTP endpoints (currently `healthCheck`). |
 | `functions/migrations/` | Versioned, run-once data migrations and their runner. |
 | `functions/scripts/` | `sync-shared.mjs` (copies `/shared` in before deploy) and `migrate.mjs`. |
-| `functions/services/`, `callable/`, `triggers/`, `scheduled/` *(planned, Phase 3+)* | Business logic and the functions that call it. |
+| `functions/services/staff.js` | The only code that grants or removes staff access (custom claims + `staff/{uid}` + audit log). |
+| `functions/callable/staff.js` | `claimOwner` (first-time setup) and `setStaffRoles` (Owner only). |
+| `functions/services/settings.js`, `callable/settings.js` | `saveSettings`: validates, writes `settings/public` + `settings/private` in one transaction, logs a field-level diff, notifies the Owner. |
+| `functions/services/catalog.js` | Categories, brands, colours, sizes: unique web addresses and names, one-level nesting, delete only when unused. |
+| `functions/services/products.js` | Products and variants (id `{colorId}_{sizeId}` so duplicates are impossible), SKU registry (`skus/`), cost prices (`variantCosts/`, separate for permissions), publish checks (needs a photo and an active variant), and the product `summary` used for fast listing. |
+| `functions/services/inventory.js` | The only code that changes stock: transactional, never below zero or below reserved, append-only `stockMovements`, low/out-of-stock notifications on crossing the line. |
+| `functions/services/images.js`, `triggers/images.js` | Photo pipeline: staff upload an original, a Storage trigger verifies the real file contents, makes 400/800/1600 px WebP, strips metadata, deletes the original. |
+| `functions/services/orders.js` | `quote`, `placeOrder` (one transaction: re-reads prices and stock, all-or-nothing, snapshots, COD payment left pending, idempotent), `updateOrderStatus` (allowed paths only, restocks on cancel/return, customers may cancel their own pending orders), notes, shipments, CSV export. |
+| `functions/services/shipping.js` | Reads the owner's shipping methods and rates; never invents a charge. Orders are refused until delivery is configured (admin screens for it arrive in Phase 7). |
+| `functions/callable/orders.js` | Customer: `quoteCheckout`, `placeOrder`, `cancelMyOrder`. Staff: `updateOrderStatus`, `addOrderNote`, `addShipment`, `exportOrders`. |
+| `functions/callable/catalog.js` | The catalogue, product, photo and stock callables, each tied to `products.write` or `inventory.adjust`. |
+| `functions/lib/notify.js`, `lib/audit.js` | Admin notifications (addressed to a permission) and the append-only activity log. |
+| `functions/lib/options.js` | Region (`asia-south1`) and instance limit — imported first by every function module. |
+| `functions/triggers/`, `scheduled/` *(planned)* | Firestore/Storage triggers and timed jobs. |
 | `functions/shared/` | **Generated** copy of `/shared`. Never edit; never commit. |
 | `scripts/emulators.mjs` | Starts the emulators (or runs a command against them) with the right Java settings for this machine. |
 | `scripts/check-secrets.mjs`, `.githooks/` | Secret scanner, run before every commit and in CI. |
@@ -71,13 +94,22 @@ Errors: services throw `AppError(code, safeMessage)`. `safeHandler`/`toHttpsErro
 browser unchanged and turns anything unexpected into a generic "Something went wrong" while logging
 the full error server-side through `log`, which strips passwords, tokens and keys.
 
-## 4. Authentication flow *(Phase 3)*
+## 4. Authentication flow
 
 Firebase Auth (email + password) signs customers in; the browser holds Firebase's ID token. Staff are
 ordinary Firebase users who additionally carry **custom claims** `{ staff: true, roles: [...], perms: [...] }`,
-set only by an Owner-only Cloud Function. Security rules use the `can(permission)` helper in
-`firestore.rules`; functions check the same claims. Public signup can never set claims. The first Owner
-is created from the command line.
+set only by `functions/services/staff.js`. Security rules use the `can(permission)` helper in
+`firestore.rules`; `secureCallable` checks the same claims and, for staff actions, also checks live that
+the account is enabled and its sessions weren't revoked. Public sign-up can never set claims.
+
+First Owner: the account whose **verified** email equals `OWNER_EMAIL` (Functions environment) presses
+"Claim ownership" on `/admin`; a transaction on `system/owner` makes this possible exactly once. After
+that, only an Owner can grant roles. Removing any permission revokes that person's sessions. The last
+Owner can't be removed. Step-by-step: `docs/OWNER-SETUP.md`.
+
+Customer data: `users/{uid}` (name, email, phone) and `users/{uid}/addresses/*` are readable and
+writable only by that customer; rules enforce the allowed fields and formats. Staff with
+`customers.read` can read profiles but not addresses.
 
 ## 5. Data model
 
