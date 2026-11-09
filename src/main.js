@@ -14,6 +14,7 @@ import { ordersView, orderView, orderPlacedView } from "./views/accountOrders.js
 import { wishlistView } from "./views/wishlist.js";
 import { startSession } from "./app/session.js";
 import { bindAccountLink } from "./ui/layout.js";
+import { initLuxury } from "./ui/luxury.js";
 
 route(/^\/$/, home, "home");
 route(/^\/shop(?:\/([\w-]+))?$/, shop, "shop");
@@ -41,6 +42,7 @@ requestAnimationFrame(reveal);
 setTimeout(reveal, 250); // rAF can be throttled in background tabs
 
 bindMediaEvents();
+initLuxury();
 whenCatalog().then(applyStoreConfig);
 
 // Load the sign-in state after first paint, so the Firebase SDK never delays the page.

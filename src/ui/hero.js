@@ -56,7 +56,7 @@ const TEMPLATE = `
       <div class="specimen" data-reveal>
         <p class="specimen__label">
           <span class="specimen__fig">Fig. 01</span>
-          <a class="specimen__link" href="/product/studio-low-top">Low-top sneaker</a>
+          <a class="specimen__link" href="/shop">Low-top sneaker</a>
           <span class="specimen__status" aria-live="polite">Preparing the studio…</span>
         </p>
         <div class="finishes" role="group" aria-label="Choose a finish" hidden></div>
@@ -105,11 +105,7 @@ function build() {
     );
   }
 
-  // "Low-top sneaker" follows the finish chosen on the plinth.
-  const link = hero.querySelector(".specimen__link");
-  hero.addEventListener("finishchange", (e) => {
-    link.href = `/product/studio-low-top?color=${encodeURIComponent(e.detail.toLowerCase())}`;
-  });
+  // The specimen link goes to the shop: the 3D model is a showcase, not a product in the catalogue.
 
   const status = hero.querySelector(".specimen__status");
   return status;

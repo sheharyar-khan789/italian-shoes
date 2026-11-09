@@ -30,10 +30,14 @@ export default async function home(ctx) {
   const featured = (picked.length ? picked : queryProducts(products, { sort: "featured" }).filter((p) => p.featured)).slice(0, 4);
   const banners = show("showBanners") ? await loadBanners().catch(() => []) : [];
   const city = (s.address ?? "").split(",").pop().trim();
+  // Ribbon text is only facts the owner saved, plus how ordering really works (cash on delivery).
+  const ribbon = [s.storeName, s.address, "Cash on delivery", "Order online"].filter(Boolean);
+  const ribbonGroup = Array.from({ length: 3 }, () => ribbon.map((t) => `<span class="marquee__item">${esc(t)}<i></i></span>`).join("")).join("");
   const phoneDigits = (s.phone ?? "").replace(/\D/g, "").replace(/^0/, "").replace(/^92/, "");
 
   const sections = document.createElement("div");
   sections.innerHTML = `
+  ${ribbon.length ? `<div class="marquee" aria-hidden="true"><div class="marquee__track">${ribbonGroup}${ribbonGroup}</div></div>` : ""}
   ${
     banners.length
       ? `<section class="section banners" aria-label="Announcements">${banners

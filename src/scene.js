@@ -64,8 +64,8 @@ export function createStage({ hero, canvas, anchor, finishes, status, reducedMot
   const stage = new THREE.Group();
   scene.add(stage);
 
-  const plinthSide = new THREE.MeshStandardMaterial({ color: 0x181512, roughness: 0.78, metalness: 0.05 });
-  const plinthTop = new THREE.MeshStandardMaterial({ color: 0x1f1b18, roughness: 0.32, metalness: 0.05 });
+  const plinthSide = new THREE.MeshStandardMaterial({ color: 0x111712, roughness: 0.78, metalness: 0.05 });
+  const plinthTop = new THREE.MeshStandardMaterial({ color: 0x1a261b, roughness: 0.32, metalness: 0.05 });
   const plinth = new THREE.Mesh(new THREE.CylinderGeometry(1.5, 1.5, 0.62, 128, 1), [plinthSide, plinthTop, plinthSide]);
   plinth.position.y = -0.31;
   plinth.receiveShadow = true;
@@ -75,7 +75,7 @@ export function createStage({ hero, canvas, anchor, finishes, status, reducedMot
   // A fine bronze inlay where the top meets the side.
   const inlay = new THREE.Mesh(
     new THREE.TorusGeometry(1.5, 0.006, 8, 200),
-    new THREE.MeshStandardMaterial({ color: 0xb8a081, roughness: 0.35, metalness: 0.9 }),
+    new THREE.MeshStandardMaterial({ color: 0xb08d57, roughness: 0.35, metalness: 0.9 }),
   );
   inlay.rotation.x = Math.PI / 2;
   stage.add(inlay);

@@ -1,11 +1,15 @@
 :root {
-  --ink: #12100e;
-  --ink-2: #1c1916;
-  --bone: #ece5d8;
-  --bone-dim: rgba(236, 229, 216, 0.66);
-  --bone-faint: rgba(236, 229, 216, 0.4);
-  --line: rgba(236, 229, 216, 0.16);
-  --bronze: #b8a081;
+  --ink: #0b0f0d;
+  --ink-2: #111a14;
+  --bone: #efe6d2;
+  --bone-dim: rgba(239, 230, 210, 0.66);
+  --bone-faint: rgba(239, 230, 210, 0.4);
+  --line: rgba(239, 230, 210, 0.16);
+  --bronze: #b08d57;
+  --gold: #b08d57;
+  --gold-soft: #d9c7a3;
+  --emerald: #3e5a3f;
+  --sage: #8ca98c;
 
   --serif: "Cormorant Garamond", "Times New Roman", serif;
   --sans: "Manrope", system-ui, -apple-system, "Segoe UI", sans-serif;
@@ -212,7 +216,7 @@ a {
   isolation: isolate;
   background:
     radial-gradient(120% 80% at 50% 120%, rgba(0, 0, 0, 0.55), transparent 60%),
-    linear-gradient(180deg, #171411 0%, var(--ink) 55%, #0d0c0a 100%);
+    linear-gradient(180deg, #0d1410 0%, var(--ink) 55%, #070a08 100%);
 }
 
 /* Studio key light, positioned over the stage by JS (--stage-x / --stage-y). */
@@ -224,8 +228,8 @@ a {
   background:
     radial-gradient(
       38vmax 30vmax at var(--stage-x, 64%) calc(var(--stage-y, 55%) - 6%),
-      rgba(222, 196, 160, 0.17),
-      rgba(222, 196, 160, 0.05) 45%,
+      rgba(176, 141, 87, 0.17),
+      rgba(176, 141, 87, 0.05) 45%,
       transparent 72%
     ),
     radial-gradient(
@@ -601,10 +605,10 @@ a {
   width: min(34vw, 420px);
   aspect-ratio: 3.2 / 1;
   transform: translateX(-50%);
-  background: linear-gradient(180deg, #2c2824, #15130f 70%);
+  background: linear-gradient(180deg, #243324, #0b0f0d 70%);
   border-radius: 50% / 22%;
   box-shadow:
-    inset 0 2px 0 rgba(236, 229, 216, 0.08),
+    inset 0 2px 0 rgba(239, 230, 210, 0.08),
     0 40px 60px -20px rgba(0, 0, 0, 0.8);
 }
 .fallback__plinth::before {
@@ -613,7 +617,7 @@ a {
   inset: 0 0 auto;
   height: 44%;
   border-radius: 50%;
-  background: radial-gradient(closest-side, #3a342d, #24201c);
+  background: radial-gradient(closest-side, #3e5a3f, #1a261b);
 }
 
 /* ───────────── Entrance choreography ───────────── */
@@ -704,7 +708,7 @@ a {
     display: flex;
     align-items: flex-end;
     padding: calc(var(--header-h) + 24px) var(--gutter) 48px;
-    background: #0d0c0a;
+    background: #070a08;
     opacity: 0;
     visibility: hidden;
     transition:

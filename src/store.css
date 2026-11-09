@@ -1,9 +1,9 @@
 /* Storefront styles — extend the hero's tokens (style.css) to every page. */
 
 :root {
-  --panel: #1a1714;
-  --panel-2: #211d19;
-  --line-strong: rgba(236, 229, 216, 0.28);
+  --panel: #111a14;
+  --panel-2: #1a2a1d;
+  --line-strong: rgba(239, 230, 210, 0.28);
   --danger: #e59a86;
   --ok: #a9c4a0;
   --warn: #dcbf8a;
@@ -60,13 +60,13 @@ main {
 /* ───────── Header (site-wide) ───────── */
 
 .site-header.is-solid {
-  background: rgba(16, 14, 12, 0.9);
+  background: rgba(11, 15, 13, 0.9);
   -webkit-backdrop-filter: blur(14px);
   backdrop-filter: blur(14px);
   border-bottom-color: var(--line);
 }
 .site-header.menu-open {
-  background: #0d0c0a;
+  background: #070a08;
 }
 
 .site-nav a[aria-current] {
@@ -380,8 +380,8 @@ button.btn {
   place-items: center;
   overflow: hidden;
   background:
-    radial-gradient(70% 60% at 50% 38%, rgba(222, 196, 160, 0.1), transparent 70%),
-    linear-gradient(180deg, #1f1b17 0%, #15130f 100%);
+    radial-gradient(70% 60% at 50% 38%, rgba(176, 141, 87, 0.1), transparent 70%),
+    linear-gradient(180deg, #16211a 0%, #0b0f0d 100%);
 }
 .media .shoe-art {
   width: 82%;
@@ -413,7 +413,7 @@ button.btn {
   grid-template-rows: 1fr auto;
   min-height: 340px;
   padding: 26px;
-  background: linear-gradient(180deg, #1d1915 0%, #14120f 100%);
+  background: linear-gradient(180deg, #121b15 0%, #0b110e 100%);
   border: 1px solid var(--line);
   overflow: hidden;
   isolation: isolate;
@@ -424,7 +424,7 @@ button.btn {
   position: absolute;
   inset: 0;
   z-index: -1;
-  background: radial-gradient(60% 50% at 60% 40%, rgba(222, 196, 160, 0.12), transparent 70%);
+  background: radial-gradient(60% 50% at 60% 40%, rgba(176, 141, 87, 0.12), transparent 70%);
   opacity: 0.6;
   transition: opacity 0.6s var(--ease-out);
 }
@@ -560,7 +560,7 @@ button.btn {
   top: 12px;
   left: 12px;
   padding: 4px 9px;
-  background: rgba(13, 12, 10, 0.75);
+  background: rgba(6, 9, 7, 0.75);
   border: 1px solid var(--line);
   font-size: 10px;
   font-weight: 500;
@@ -689,8 +689,8 @@ button.btn {
   place-items: center;
   aspect-ratio: 1 / 0.8;
   background:
-    radial-gradient(60% 50% at 50% 45%, rgba(222, 196, 160, 0.12), transparent 70%),
-    linear-gradient(180deg, #1c1915, #12100e);
+    radial-gradient(60% 50% at 50% 45%, rgba(176, 141, 87, 0.12), transparent 70%),
+    linear-gradient(180deg, #101812, #0b0f0d);
   border: 1px solid var(--line);
 }
 .story__mark svg {
@@ -941,7 +941,7 @@ textarea {
 }
 .size-opt.is-soldout span:not(.visually-hidden) {
   color: var(--bone-faint);
-  background: repeating-linear-gradient(135deg, transparent 0 7px, rgba(236, 229, 216, 0.06) 7px 8px);
+  background: repeating-linear-gradient(135deg, transparent 0 7px, rgba(239, 230, 210, 0.06) 7px 8px);
   text-decoration: line-through;
 }
 .size-opt.is-soldout input {
@@ -1229,7 +1229,7 @@ dialog.drawer {
   overscroll-behavior: contain;
 }
 dialog.drawer::backdrop {
-  background: rgba(5, 4, 3, 0.62);
+  background: rgba(2, 4, 3, 0.62);
   -webkit-backdrop-filter: blur(3px);
   backdrop-filter: blur(3px);
 }
@@ -1872,7 +1872,7 @@ dialog.drawer::backdrop {
 .site-footer {
   border-top: 1px solid var(--line);
   padding: clamp(56px, 9vh, 96px) var(--gutter) 28px;
-  background: #0e0d0b;
+  background: #080c0a;
 }
 .footer__top {
   display: grid;
@@ -2526,7 +2526,67 @@ body[data-route="checkout"] .fab {
 .pdp__rating a { text-decoration: none; }
 .review-list { list-style: none; margin: 0 0 1.5rem; padding: 0; display: grid; gap: 1.25rem; }
 .review { border-bottom: 1px solid var(--line, rgba(255, 255, 255, 0.14)); padding-bottom: 1.25rem; }
-.review__stars { margin: 0 0 0.25rem; letter-spacing: 0.12em; color: var(--accent, #c9a45c); }
+.review__stars { margin: 0 0 0.25rem; letter-spacing: 0.12em; color: var(--bronze); }
 .review__reply { margin: 0.5rem 0 0; padding-left: 0.9rem; border-left: 2px solid var(--line, rgba(255, 255, 255, 0.2)); }
 .inline-field { display: flex; gap: 0.5rem; }
 .inline-field input { flex: 1; min-width: 0; }
+
+/* ───────── Luxury finishing layer (emerald · champagne · gold) ───────── */
+::selection { background: var(--gold); color: var(--ink); }
+body {
+  background:
+    radial-gradient(60vmax 40vmax at 100% 0%, rgba(62, 90, 63, 0.16), transparent 70%),
+    radial-gradient(60vmax 40vmax at 0% 100%, rgba(176, 141, 87, 0.08), transparent 70%),
+    var(--ink);
+  background-attachment: fixed;
+}
+.site-header.is-solid { border-bottom: 1px solid transparent; border-image: linear-gradient(90deg, transparent, rgba(176, 141, 87, 0.45), transparent) 1; }
+.kicker__line { background: linear-gradient(90deg, var(--gold), transparent); }
+.kicker { color: var(--gold-soft); }
+.section__title em, .page-title em, .headline em {
+  background: linear-gradient(100deg, var(--gold-soft) 0%, var(--gold) 55%, #8a6a3a 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: var(--gold);
+}
+.btn--primary {
+  background: linear-gradient(135deg, #efe6d2 0%, #d9c7a3 55%, #c4a874 100%);
+  color: #14110b;
+  box-shadow: 0 10px 30px -12px rgba(176, 141, 87, 0.55), inset 0 0 0 1px rgba(255, 255, 255, 0.35);
+}
+.btn--primary:hover, .btn--primary:focus-visible {
+  background: linear-gradient(135deg, #fff6e0 0%, #e8d6ac 55%, #cdb07a 100%);
+  box-shadow: 0 16px 40px -12px rgba(176, 141, 87, 0.7), inset 0 0 0 1px rgba(255, 255, 255, 0.5);
+}
+.btn--ghost::after { background: linear-gradient(90deg, var(--gold), transparent); height: 1px; }
+.btn--ghost:hover::after { background: var(--gold-soft); }
+.card__media { border-color: rgba(176, 141, 87, 0.18); background: linear-gradient(180deg, #121b15, #0b110e); }
+.card:hover .card__media { border-color: rgba(176, 141, 87, 0.6); box-shadow: 0 24px 50px -24px rgba(176, 141, 87, 0.35); }
+.card__cat { color: var(--gold); letter-spacing: 0.22em; }
+.price, .pdp__price { color: var(--gold-soft); }
+.price--sale .price__save, .card__badge--sale { color: var(--gold); border-color: var(--gold); }
+.card__badge { border-color: rgba(176, 141, 87, 0.5); color: var(--gold-soft); }
+.size-opt input:checked + span, .color-opt input:checked ~ .color-opt__name { border-color: var(--gold); color: var(--gold-soft); }
+.review, .banner, .order-card, .address-card, .adm-card { border-color: rgba(176, 141, 87, 0.2); }
+.banner { background: linear-gradient(135deg, rgba(62, 90, 63, 0.22), rgba(176, 141, 87, 0.08)); }
+.section { position: relative; }
+.section + .section::before {
+  content: "";
+  display: block;
+  width: min(220px, 40%);
+  height: 1px;
+  margin: 0 auto clamp(32px, 5vw, 72px);
+  background: linear-gradient(90deg, transparent, var(--gold), transparent);
+  opacity: 0.55;
+}
+.site-footer { border-top: 1px solid rgba(176, 141, 87, 0.25); background: linear-gradient(180deg, transparent, rgba(62, 90, 63, 0.12)); }
+:focus-visible { outline-color: var(--gold-soft); }
+.review__stars, .pdp__rating { color: var(--gold); }
+
+.announce {
+  background: linear-gradient(90deg, #070a08, #16211a 50%, #070a08);
+  color: var(--gold-soft);
+  border-bottom: 1px solid rgba(176, 141, 87, 0.35);
+  letter-spacing: 0.24em;
+}
