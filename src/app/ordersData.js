@@ -1,5 +1,6 @@
 /** A customer's own orders. Security rules make sure they can read nothing else. */
 import { firebase } from "./firebase.js";
+import { callApi } from "./api.js";
 
 const fs = () => import("firebase/firestore");
 const TIMEOUT = 12000;
@@ -26,9 +27,7 @@ export async function getMyOrder(id) {
 }
 
 export async function cancelMyOrder(orderId, reason = "") {
-  const { functions } = await firebase();
-  const { httpsCallable } = await import("firebase/functions");
-  await httpsCallable(functions, "cancelMyOrder", { timeout: 30000 })({ orderId, reason });
+  await callApi("cancelMyOrder", { orderId, reason });
 }
 
 /** Store details (name, address, phone) for the invoice header. */

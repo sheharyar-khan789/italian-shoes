@@ -2,17 +2,15 @@
  * Admin data for the catalogue, products, stock and photos. Reads go to the server with a timeout
  * (see data.js); every write is a Cloud Function call that re-checks permission and input.
  */
-import { firebase, storage } from "../app/firebase.js";
+import { firebase } from "../app/firebase.js";
+import { callApi } from "../app/api.js";
 import { withTimeout } from "./data.js";
 
 const fs = () => import("firebase/firestore");
 
-/** Call a Cloud Function; errors keep their safe message and field details. */
-export async function call(name, data) {
-  const { functions } = await firebase();
-  const { httpsCallable } = await import("firebase/functions");
-  const res = await httpsCallable(functions, name, { timeout: 30000 })(data);
-  return /** @type {any} */ (res.data);
+/** Call a server endpoint (/api/<name>); errors keep their safe message and field details. */
+export function call(name, data) {
+  return callApi(name, data);
 }
 
 /**
@@ -76,36 +74,27 @@ export async function listMovements(inventoryId, max = 20) {
 /* ───────── Photos ───────── */
 
 /**
- * Upload one original. The image function checks and processes it; we wait for its verdict in
- * uploads/{uploadId}. Resolves to { status: "done" | "rejected", reason? }.
- * @param {string} productId @param {File} file @param {string} uid @param {(pct: number) => void} onProgress
+ * Upload one original photo straight to Vercel Blob (with a one-time token from /api/blobUpload), then ask
+ * the server to check and process it. Resolves to { status: "done" | "rejected", reason? }.
+ * @param {string} productId @param {File} file @param {string} _uid @param {(pct: number) => void} onProgress
  */
-export async function uploadProductImage(productId, file, uid, onProgress) {
-  const st = await storage();
-  const { ref, uploadBytesResumable } = await import("firebase/storage");
-  const uploadId = crypto.randomUUID().replace(/-/g, "");
-  const task = uploadBytesResumable(ref(st, `products/${productId}/uploads/${uploadId}`), file, {
+export async function uploadProductImage(productId, file, _uid, onProgress) {
+  const { auth } = await firebase();
+  const idToken = await auth.currentUser?.getIdToken();
+  if (!idToken) return { status: "rejected", reason: "Please sign in again." };
+  const { upload } = await import("@vercel/blob/client");
+  const blob = await upload(`uploads/${productId}/${crypto.randomUUID().replace(/-/g, "")}`, file, {
+    access: "public",
     contentType: file.type,
-    customMetadata: { uploadedBy: uid },
+    handleUploadUrl: "/api/blobUpload",
+    headers: { Authorization: `Bearer ${idToken}` },
+    onUploadProgress: ({ percentage }) => onProgress(Math.round(percentage)),
   });
-  await new Promise((resolve, reject) => {
-    task.on("state_changed", (s) => onProgress(Math.round((s.bytesTransferred / s.totalBytes) * 100)), reject, () => resolve(undefined));
-  });
-
-  const { db } = await firebase();
-  const f = await fs();
-  return withTimeout(
-    new Promise((resolve, reject) => {
-      const stop = f.onSnapshot(
-        f.doc(db, "uploads", uploadId),
-        (snap) => {
-          if (!snap.exists()) return;
-          stop();
-          resolve(snap.data());
-        },
-        reject,
-      );
-    }),
-    90000,
-  );
+  onProgress(100);
+  try {
+    await callApi("addProductImage", { productId, url: blob.url });
+    return { status: "done" };
+  } catch (error) {
+    return { status: "rejected", reason: /** @type {Error} */ (error).message };
+  }
 }

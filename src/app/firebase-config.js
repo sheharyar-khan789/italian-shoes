@@ -23,7 +23,5 @@ export const FIREBASE_WEB_CONFIG = {
 /** "demo-" project ids make the emulators refuse to reach any real Google service. */
 export const EMULATOR_PROJECT_ID = "demo-italianshoes";
 
-export const EMULATOR_PORTS = { auth: 9099, firestore: 8080, functions: 5001, storage: 9199 };
+export const EMULATOR_PORTS = { auth: 9099, firestore: 8080 };
 
-/** Must match setGlobalOptions({ region }) in functions/index.js. */
-export const FUNCTIONS_REGION = "asia-south1";

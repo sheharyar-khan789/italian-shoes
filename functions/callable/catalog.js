@@ -15,6 +15,7 @@ import {
   createVariantsInput,
   stockAdjustmentSchema,
   imageActionInput,
+  addProductImageInput,
 } from "../shared/schemas/index.js";
 import * as catalog from "../services/catalog.js";
 import * as products from "../services/products.js";
@@ -41,6 +42,7 @@ export const saveVariant = secureCallable("saveVariant", { ...WRITE, schema: sav
 export const createVariants = secureCallable("createVariants", { ...WRITE, schema: createVariantsInput }, ({ data, uid, token }) =>
   products.createVariants(data, { actorUid: uid, canEditCost: hasPermission(token, "costs.read") }),
 );
+export const addProductImage = secureCallable("addProductImage", { ...WRITE, rateLimit: { limit: 120, windowSeconds: 600 }, schema: addProductImageInput }, ({ data, uid }) => images.addProductImage(data, uid));
 export const productImageAction = secureCallable("productImageAction", { ...WRITE, schema: imageActionInput }, ({ data, uid }) => images.imageAction(data, uid));
 
 export const adjustStock = secureCallable(

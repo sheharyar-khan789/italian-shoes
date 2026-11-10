@@ -7,7 +7,6 @@ import { test, before, after, beforeEach } from "node:test";
 import { readFileSync } from "node:fs";
 import { initializeTestEnvironment, assertFails, assertSucceeds } from "@firebase/rules-unit-testing";
 import { doc, getDoc, setDoc, updateDoc, deleteDoc, collection, getDocs, serverTimestamp } from "firebase/firestore";
-import { ref, uploadString, getBytes } from "firebase/storage";
 
 /** @type {import("@firebase/rules-unit-testing").RulesTestEnvironment} */
 let env;
@@ -16,7 +15,6 @@ before(async () => {
   env = await initializeTestEnvironment({
     projectId: "demo-italianshoes",
     firestore: { rules: readFileSync("firestore.rules", "utf8") },
-    storage: { rules: readFileSync("storage.rules", "utf8") },
   });
 });
 after(async () => env?.cleanup());
@@ -136,14 +134,6 @@ test("everything else stays denied", async () => {
   await assertSucceeds(getDoc(doc(alice(), "orders/o1")), "a customer reads their own order (Phase 6)");
 });
 
-test("storage denies uploads and downloads by default", async () => {
-  for (const who of [env.unauthenticatedContext(), env.authenticatedContext("alice"), env.authenticatedContext("owner-1", { staff: true, perms: ["products.write"] })]) {
-    const storage = who.storage();
-    await assertFails(uploadString(ref(storage, "products/p1/a.jpg"), "data"), "outside the uploads folder");
-    await assertFails(getBytes(ref(storage, "products/p1/a.jpg")));
-  }
-});
-
 /* ───────── Phase 4: settings, notifications, activity log ───────── */
 
 const seedAdminData = () =>
@@ -251,26 +241,6 @@ test("cost prices, stock records and stock history are staff-only, per permissio
   await assertSucceeds(getDocs(collection(inventoryStaff(), "stockMovements")));
   await assertFails(getDoc(doc(alice(), "inventory/live__v1")));
   await assertFails(getDocs(collection(catalogStaff(), "stockMovements")));
-});
-
-test("photo uploads: only staff with products.write, only real image types, under 8 MB, own uid recorded", async () => {
-  const { uploadBytes } = await import("firebase/storage");
-  const file = new Uint8Array(1024);
-  const writer = env.authenticatedContext("cat-1", { staff: true, perms: ["products.write"] }).storage();
-  const meta = (extra = {}) => ({ contentType: "image/jpeg", customMetadata: { uploadedBy: "cat-1" }, ...extra });
-
-  await assertSucceeds(uploadBytes(ref(writer, "products/p1/uploads/abcdef123456"), file, meta()));
-  await assertFails(uploadBytes(ref(writer, "products/p1/uploads/abcdef123457"), file, meta({ contentType: "image/svg+xml" })), "SVG can carry scripts");
-  await assertFails(uploadBytes(ref(writer, "products/p1/uploads/abcdef123458"), file, meta({ contentType: "text/html" })));
-  await assertFails(uploadBytes(ref(writer, "products/p1/uploads/abcdef123459"), file, meta({ customMetadata: { uploadedBy: "someone-else" } })));
-  await assertFails(uploadBytes(ref(writer, "products/p1/uploads/abcdef12345a"), new Uint8Array(8 * 1024 * 1024 + 1), meta()), "over 8 MB");
-  await assertFails(uploadBytes(ref(writer, "products/p1/images/abcdef-800.webp"), file, meta()), "processed images are written by the function only");
-  await assertFails(getBytes(ref(writer, "products/p1/uploads/abcdef123456")), "originals are never readable");
-
-  const shopper = env.authenticatedContext("alice").storage();
-  await assertFails(uploadBytes(ref(shopper, "products/p1/uploads/abcdef12345b"), file, { contentType: "image/jpeg", customMetadata: { uploadedBy: "alice" } }));
-  const noPerm = env.authenticatedContext("inv-1", { staff: true, perms: ["inventory.adjust"] }).storage();
-  await assertFails(uploadBytes(ref(noPerm, "products/p1/uploads/abcdef12345c"), file, { contentType: "image/jpeg", customMetadata: { uploadedBy: "inv-1" } }));
 });
 
 /* ───────── Phase 6: orders ───────── */

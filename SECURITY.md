@@ -32,9 +32,9 @@ owner must switch on in the Firebase / Google Cloud / GitHub consoles (code can'
 
 | Protection | Where |
 | --- | --- |
-| Firestore and Storage rules **deny everything by default**; each feature opens only what it needs | `firestore.rules`, `storage.rules` |
-| Prices, stock, orders, payments and roles can be written **only** by Cloud Functions | rules + plan |
-| Every callable function goes through `secureCallable`: App Check → sign-in → permission → rate limit → input validation → safe errors | `functions/lib/callable.js` |
+| Firestore rules **deny everything by default**; each feature opens only what it needs | `firestore.rules`, `storage.rules` |
+| Prices, stock, orders, payments and roles can be written **only** by the server (Vercel `api/`, Admin SDK) | rules + plan |
+| Every endpoint goes through `secureCallable`/`runEndpoint`: verified Firebase ID token → permission → rate limit → input validation → safe errors | `functions/lib/callable.js` |
 | Staff permission checks also verify **live** that the account isn't disabled and its sessions weren't revoked | `functions/lib/callable.js` |
 | Accounts: Firebase Auth (Google hashes passwords, throttles sign-in), 10+ character password rule, email verification | `src/app/session.js`, `shared/schemas/account.js` |
 | Sign-in and password-reset messages never reveal whether an email has an account | `src/app/authErrors.js`, `session.requestPasswordReset` |
@@ -58,9 +58,9 @@ owner must switch on in the Firebase / Google Cloud / GitHub consoles (code can'
 | Money is whole paisa only; fractional or overflowing amounts are rejected | `shared/money.js` |
 | Order and payment status can only move along allowed paths | `shared/orderStatus.js` |
 | Owner-only permissions (staff, settings, audit log) can never be granted to another role | `shared/permissions.js` |
-| `maxInstances: 10` caps how far an attack or traffic spike can run up the bill | `functions/index.js` |
+| Free plans have hard limits instead of a bill; endpoints are rate-limited per user/IP in Firestore | `functions/lib/rateLimit.js` |
 | Emulators use a `demo-` project id, so development can never touch live data | `scripts/emulators.mjs` |
-| No service-account key is used anywhere; Cloud Functions use Google's built-in identity | `functions/lib/admin.js` |
+| The server key lives ONLY in Vercel environment variables (`FIREBASE_*`), never in the repo or the browser; `npm run secrets` and the pre-commit hook block key files and key text | `functions/lib/admin.js`, `scripts/check-secrets.mjs` |
 
 ### Code and supply chain
 
@@ -118,7 +118,7 @@ After cloning, run `git config core.hooksPath .githooks` once to enable the pre-
       2. add to the CSP in `firebase.json`: `script-src https://www.google.com https://www.gstatic.com`,
          `frame-src https://www.google.com`, and `https://www.google.com` in `connect-src`;
       3. after a few days of monitoring, enforce App Check for Firestore, Storage and Functions, and set
-         `APP_CHECK_ENFORCE=true` in `functions/.env.italianshoes`.
+         `APP_CHECK_ENFORCE=true` (App Check is not enforced by the Vercel server; this is optional hardening).
 - [ ] **Firestore TTL**: Firestore → TTL policies → collection group `_rateLimits`, field `expireAt`.
 - [ ] **Backups**: enable Firestore point-in-time recovery and a daily scheduled backup.
 - [ ] **Budget alert**: Google Cloud → Billing → Budgets & alerts (e.g. alert at Rs. 1,000 / month).

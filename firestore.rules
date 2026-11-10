@@ -170,13 +170,8 @@ service cloud.firestore {
       allow read: if can('inventory.read');
       allow write: if false;
     }
-    // Image upload results, so the uploader's screen can show "added" or why it was rejected.
-    match /uploads/{id} {
-      allow read: if can('products.write');
-      allow write: if false;
-    }
 
-    // ── Orders (created and changed only by Cloud Functions: services/orders.js) ──
+    // ── Orders (created and changed only by the server: services/orders.js) ──
     // A customer reads only their own orders; list queries must filter userId == their uid.
     // Staff need orders.read. Nobody writes from the browser.
     match /orders/{orderId} {

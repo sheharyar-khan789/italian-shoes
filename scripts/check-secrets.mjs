@@ -20,6 +20,7 @@ const PATTERNS = [
   { name: "GitHub token", re: /\bgh[pousr]_[A-Za-z0-9]{36,}\b/ },
   { name: "Slack token", re: /\bxox[abprs]-[A-Za-z0-9-]{10,}/ },
   { name: "Stripe live key", re: /\b[sr]k_live_[A-Za-z0-9]{20,}/ },
+  { name: "Vercel Blob token", re: /vercel_blob_rw_[A-Za-z0-9_]{10,}/ },
   { name: "Google API key outside the Firebase web config", re: /AIza[0-9A-Za-z_-]{35}/, allow: ["src/app/firebase-config.js"] },
 ];
 

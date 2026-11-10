@@ -343,7 +343,7 @@ async function editor({ main, user, navigate }, id) {
       const state = document.createElement("span");
       li.append(state);
       uploadList.append(li);
-      // Same checks as storage.rules, so obvious problems are explained before uploading.
+      // Same limits the server enforces, so obvious problems are explained before uploading.
       if (!IMAGE_UPLOAD.types.includes(file.type)) {
         state.textContent = "not added — use a JPEG, PNG or WebP photo.";
         continue;

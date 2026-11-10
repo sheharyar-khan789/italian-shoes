@@ -6,23 +6,13 @@ on purpose: each step touches the live Firebase project and needs a person to ap
 ## 1. Firebase console (one-time)
 
 1. **Authentication → Sign-in method** → enable **Email/Password**.
-2. **Authentication → Settings**:
-   - *User actions*: turn on **Email enumeration protection**.
-   - *Password policy*: require at least **10 characters** with letters and numbers (matches the site's own rule).
-   - *Authorized domains*: keep only `localhost`, `italianshoes.web.app`, `italianshoes.firebaseapp.com` and your own domain.
-3. **Authentication → Templates**: set the sender name to *Italian Shoes* and check the password-reset and
-   email-verification wording.
-4. **Firestore Database**: create the database (production mode) in region **asia-south1 (Mumbai)**, or
-   tell the developer which region you chose so the Functions region can match.
-5. Upgrade the project to the **Blaze** plan and set a **budget alert** (Cloud Functions need Blaze).
+2. **Authentication → Settings**: turn on **Email enumeration protection**; set a **Password policy** (10+ characters, letters and numbers); under *Authorized domains* keep only `localhost`, `italianshoes.web.app`, `italianshoes.firebaseapp.com`, `italian-shoes.vercel.app` and your own domain.
+3. **Authentication → Templates**: set the sender name to *Italian Shoes*.
+4. **Firestore Database**: create it (production mode, region asia-south1). Stay on the free **Spark** plan: nothing here needs a paid plan.
 
-## 2. Configure and deploy (developer, with your approval)
+## 2. Configure and deploy
 
-1. Create `functions/.env.italianshoes` (never committed) from `functions/.env.example` and set
-   `OWNER_EMAIL=` to the owner's email address.
-2. Run the database migrations against the live project (creates the four staff roles):
-   `node functions/scripts/migrate.mjs --production --project italianshoes`
-3. Deploy rules, functions and the site: `firebase deploy --project italianshoes`.
+Follow **`docs/VERCEL-SETUP.md`** (server key, Vercel environment variables, Blob store, Firestore rules, redeploy). The first Owner is set up with `node functions/scripts/grant-owner.mjs --email <owner email> --production --project italianshoes` (needs a Google login on the computer) or with the *Claim ownership* button on /admin (needs `OWNER_EMAIL` in Vercel and a verified email).
 
 ## 3. Become the Owner (the owner does this)
 

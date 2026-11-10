@@ -7,7 +7,7 @@ Nothing here has been done to the live project yet. Deploying, enabling billing 
 | Area | Verified how |
 | --- | --- |
 | Shared rules, schemas, money, coupon logic | Unit tests (`npm test`) |
-| Firestore and Storage security rules | Emulator tests (`npm run test:emulator`) |
+| Firestore security rules | Emulator tests (`npm run test:emulator`) |
 | Orders, stock (no overselling), coupons, payments, refunds, reviews, content, reports | Emulator tests against real Firestore transactions |
 | Storefront browsing, product page, bag, FAQ/policy pages, sign-in redirect | Opened in a browser against emulator data |
 | **Signed-in checkout, review form, wishlist, every admin screen with real data** | **Not run in a browser.** Their backend is tested; the screens themselves have not been seen working, because test accounts are not created. Do the walkthrough below on the live site before announcing it. |
@@ -21,12 +21,7 @@ Nothing here has been done to the live project yet. Deploying, enabling billing 
 2. Google Cloud console items in `SECURITY.md` (restrict the web API key to your domains; App Check with reCAPTCHA Enterprise, then set `APP_CHECK_ENFORCE=true` in `functions/.env.italianshoes` and `VITE_APPCHECK_SITE_KEY` for the build).
 3. Rotate the admin-SDK key that was shared in chat (delete it in Google Cloud → IAM → Service accounts → Keys, and delete the copy in Downloads), and change the owner password that was shared in chat.
 4. `npm run check` and `npm run test:emulator` must both pass on the commit you deploy.
-5. Run migrations, then deploy (developer, with approval):
-   ```bash
-   node functions/scripts/migrate.mjs --production --project italianshoes
-   firebase deploy --project italianshoes
-   ```
-   Firestore indexes in `firestore.indexes.json` are deployed with it; wait until they show "Enabled" before opening the shop.
+5. Follow `docs/VERCEL-SETUP.md`: server key and Vercel variables, Blob store, `firebase deploy --only firestore:rules,firestore:indexes`, redeploy. Wait until the indexes show "Enabled" in the Firebase console before opening the shop.
 6. Claim ownership (`docs/OWNER-SETUP.md` section 3).
 
 ## Walkthrough on the live site (owner + developer, ~30 minutes)
@@ -43,7 +38,7 @@ Nothing here has been done to the live project yet. Deploying, enabling billing 
 
 ## Rollback
 
-`firebase hosting:rollback` restores the previous site version. Functions and rules can be redeployed from the previous git commit. Orders and customers live in Firestore and are not affected by redeploying the site.
+In Vercel → Deployments, choose an earlier deployment → **Promote to Production** (instant rollback). Rules can be redeployed from the previous git commit. Orders and customers live in Firestore and are not affected by redeploying the site.
 
 ## Known limits (deliberate)
 

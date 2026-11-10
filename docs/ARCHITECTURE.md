@@ -1,7 +1,7 @@
 # Architecture
 
 Italian Shoes e-commerce platform. Vite + vanilla JavaScript in the browser, Firebase on the server
-(Auth, Firestore, Cloud Functions, Storage, Hosting).
+(Auth + Firestore on the free Spark plan; the website and server code on Vercel Hobby; photos in Vercel Blob).
 
 > **Status (end of Phase 6):** Firebase foundation (2), accounts and staff roles (3), admin dashboard
 > shell (4), the catalogue and stock (5), and orders (6): server-side order placement, status
@@ -36,10 +36,10 @@ Italian Shoes e-commerce platform. Vite + vanilla JavaScript in the browser, Fir
 | `shared/orderStatus.js` | Allowed order and payment status changes. |
 | `shared/permissions.js` | Permission keys and default staff roles. |
 | `shared/schemas/` | Zod validation schemas (products, variants, stock adjustments, checkout, coupons, shipping, settings). |
-| `functions/` | Cloud Functions. Deployed separately; only this folder is uploaded. |
-| `functions/index.js` | Exports every function; sets region (`asia-south1`) and instance limits. |
+| `api/` | Vercel entry points: `[fn].js` (every endpoint, POST `/api/<name>`) and `blobUpload.js` (photo-upload tokens). |
+| `functions/` | Server code (name kept from the first design). Runs inside `api/`; no Cloud Functions are deployed. |
+| `functions/registry.js`, `functions/handler.js` | Every endpoint by name, and the HTTP layer around it. |
 | `functions/lib/` | Admin SDK setup, safe errors, secret-free logging, input validation, rate limiting, and **`callable.js` — the only way to create a callable function** (App Check, sign-in, permission, rate limit, validation, safe errors in one place). |
-| `functions/http/` | HTTP endpoints (currently `healthCheck`). |
 | `functions/migrations/` | Versioned, run-once data migrations and their runner. |
 | `functions/scripts/` | `sync-shared.mjs` (copies `/shared` in before deploy) and `migrate.mjs`. |
 | `functions/services/staff.js` | The only code that grants or removes staff access (custom claims + `staff/{uid}` + audit log). |
@@ -48,14 +48,12 @@ Italian Shoes e-commerce platform. Vite + vanilla JavaScript in the browser, Fir
 | `functions/services/catalog.js` | Categories, brands, colours, sizes: unique web addresses and names, one-level nesting, delete only when unused. |
 | `functions/services/products.js` | Products and variants (id `{colorId}_{sizeId}` so duplicates are impossible), SKU registry (`skus/`), cost prices (`variantCosts/`, separate for permissions), publish checks (needs a photo and an active variant), and the product `summary` used for fast listing. |
 | `functions/services/inventory.js` | The only code that changes stock: transactional, never below zero or below reserved, append-only `stockMovements`, low/out-of-stock notifications on crossing the line. |
-| `functions/services/images.js`, `triggers/images.js` | Photo pipeline: staff upload an original, a Storage trigger verifies the real file contents, makes 400/800/1600 px WebP, strips metadata, deletes the original. |
+| `functions/services/images.js` | Photo pipeline: the admin gets a one-time Vercel Blob upload token (`api/blobUpload.js`), uploads the original, then `addProductImage` checks the real file contents with sharp, makes 400/800/1600 px WebP, strips metadata, deletes the original and adds it to the product. |
 | `functions/services/orders.js` | `quote`, `placeOrder` (one transaction: re-reads prices and stock, all-or-nothing, snapshots, COD payment left pending, idempotent), `updateOrderStatus` (allowed paths only, restocks on cancel/return, customers may cancel their own pending orders), notes, shipments, CSV export. |
 | `functions/services/shipping.js` | Reads the owner's shipping methods and rates; never invents a charge. Orders are refused until delivery is configured (admin screens for it arrive in Phase 7). |
 | `functions/callable/orders.js` | Customer: `quoteCheckout`, `placeOrder`, `cancelMyOrder`. Staff: `updateOrderStatus`, `addOrderNote`, `addShipment`, `exportOrders`. |
 | `functions/callable/catalog.js` | The catalogue, product, photo and stock callables, each tied to `products.write` or `inventory.adjust`. |
 | `functions/lib/notify.js`, `lib/audit.js` | Admin notifications (addressed to a permission) and the append-only activity log. |
-| `functions/lib/options.js` | Region (`asia-south1`) and instance limit — imported first by every function module. |
-| `functions/triggers/`, `scheduled/` *(planned)* | Firestore/Storage triggers and timed jobs. |
 | `functions/shared/` | **Generated** copy of `/shared`. Never edit; never commit. |
 | `scripts/emulators.mjs` | Starts the emulators (or runs a command against them) with the right Java settings for this machine. |
 | `scripts/check-secrets.mjs`, `.githooks/` | Secret scanner, run before every commit and in CI. |

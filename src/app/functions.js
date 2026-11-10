@@ -1,12 +1,8 @@
-/** Calls a Cloud Function (all ordering and review actions run on the server). */
-import { firebase } from "./firebase.js";
+/** Calls a server endpoint (all ordering and review actions run on the server). */
+import { callApi } from "./api.js";
 
 /** @param {string} name @param {unknown} data @returns {Promise<any>} */
-export async function callFn(name, data) {
-  const { functions } = await firebase();
-  const { httpsCallable } = await import("firebase/functions");
-  return (await httpsCallable(functions, name, { timeout: 30000 })(data)).data;
-}
+export const callFn = (name, data) => callApi(name, data);
 
 /** Safe message from a function error (internal errors never show details). */
 export const fnMessage = (error, fallback = "Something went wrong. Please try again.") =>

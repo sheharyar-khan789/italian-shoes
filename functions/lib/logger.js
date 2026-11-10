@@ -1,8 +1,8 @@
 /**
  * Structured logging that never writes secrets.
  * Any object key that looks sensitive is replaced with "[redacted]" before logging, at any depth.
+ * Output is one JSON line per entry (Vercel and Google Cloud both read this format).
  */
-import { logger } from "firebase-functions";
 
 const SENSITIVE = /pass(word)?|secret|token|api[-_]?key|private[-_]?key|authorization|cookie|credential|cvv|card/i;
 
@@ -14,11 +14,17 @@ export function redact(value, depth = 0) {
   return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, SENSITIVE.test(k) ? "[redacted]" : redact(v, depth + 1)]));
 }
 
+/** @param {"INFO" | "WARNING" | "ERROR"} severity @param {string} message @param {unknown} data */
+const write = (severity, message, data) => {
+  const line = JSON.stringify({ severity, message, ...(data === undefined ? {} : { data: redact(data) }) });
+  (severity === "ERROR" ? console.error : severity === "WARNING" ? console.warn : console.log)(line);
+};
+
 export const log = {
   /** @param {string} message @param {unknown} [data] */
-  info: (message, data) => logger.info(message, redact(data)),
+  info: (message, data) => write("INFO", message, data),
   /** @param {string} message @param {unknown} [data] */
-  warn: (message, data) => logger.warn(message, redact(data)),
+  warn: (message, data) => write("WARNING", message, data),
   /** @param {string} message @param {unknown} [data] */
-  error: (message, data) => logger.error(message, redact(data)),
+  error: (message, data) => write("ERROR", message, data),
 };

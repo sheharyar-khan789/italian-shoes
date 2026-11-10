@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { redact } from "../../functions/lib/logger.js";
-import { AppError, toHttpsError } from "../../functions/lib/errors.js";
+import { AppError, toApiError } from "../../functions/lib/errors.js";
 import { parse } from "../../functions/lib/validate.js";
 import { stockAdjustmentSchema } from "../../shared/schemas/index.js";
 
@@ -18,13 +18,17 @@ test("logs never contain secrets, at any depth", () => {
 });
 
 test("unexpected errors are hidden from callers; AppErrors pass through", () => {
-  const internal = toHttpsError(new Error("relation users does not exist at db-prod-7"), "test");
-  assert.equal(internal.code, "internal");
-  assert.ok(!internal.message.includes("db-prod"), "internal details never reach the browser");
+  const internal = toApiError(new Error("relation users does not exist at db-prod-7"), "test");
+  assert.equal(internal.status, 500);
+  assert.equal(internal.body.error.code, "internal");
+  assert.ok(!JSON.stringify(internal.body).includes("db-prod"), "internal details never reach the browser");
 
-  const safe = toHttpsError(new AppError("failed-precondition", "Only 1 left in EU 42"), "test");
-  assert.equal(safe.code, "failed-precondition");
-  assert.equal(safe.message, "Only 1 left in EU 42");
+  const safe = toApiError(new AppError("failed-precondition", "Only 1 left in EU 42"), "test");
+  assert.equal(safe.status, 400);
+  assert.equal(safe.body.error.code, "failed-precondition");
+  assert.equal(safe.body.error.message, "Only 1 left in EU 42");
+  assert.equal(toApiError(new AppError("permission-denied", "no"), "t").status, 403);
+  assert.equal(toApiError(new AppError("unauthenticated", "no"), "t").status, 401);
 
   assert.throws(() => new AppError("made-up", "x"), TypeError);
 });

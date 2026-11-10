@@ -138,7 +138,10 @@ export const imageActionInput = z
   })
   .refine((v) => (v.action === "reorder" ? Boolean(v.order?.length) : Boolean(v.imageId)), { message: "Missing image", path: ["imageId"] });
 
+/** An original already uploaded to Blob; the server checks and processes it. */
+export const addProductImageInput = z.object({ productId: docId, url: z.string().url().max(600) });
+
 export const deleteCatalogItemInput = z.object({ kind: z.enum(["category", "brand", "color", "size"]), id: docId });
 
-/** Accepted upload types and size (checked in storage.rules and again by the image function). */
+/** Accepted upload types and size (checked when the upload token is issued and again when the file is processed). */
 export const IMAGE_UPLOAD = { types: ["image/jpeg", "image/png", "image/webp"], maxBytes: 8 * 1024 * 1024, maxPerProduct: 12 };

@@ -3,6 +3,7 @@
  * goes through a Cloud Function, so this file can't grant more than the signed-in staff member has.
  */
 import { firebase } from "../app/firebase.js";
+import { callApi } from "../app/api.js";
 
 const fs = () => import("firebase/firestore");
 
@@ -45,10 +46,7 @@ export async function loadSettings() {
 
 /** @param {{ public: object, private: object }} settings */
 export async function saveSettings(settings) {
-  const { functions } = await firebase();
-  const { httpsCallable } = await import("firebase/functions");
-  const res = await httpsCallable(functions, "saveSettings", { timeout: 20000 })(settings);
-  return /** @type {{ changed: string[] }} */ (res.data);
+  return /** @type {{ changed: string[] }} */ (await callApi("saveSettings", settings));
 }
 
 /* ───────── Notifications ───────── */

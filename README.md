@@ -2,7 +2,7 @@
 
 The online store and admin panel for **Italian Shoes** (Main GT Road, Sarai Alamgir). A customer-facing storefront with the approved 3D hero, plus an admin panel for the owner and staff. Everything the shop sells, charges and says comes from the database; nothing is hard-coded.
 
-Vanilla JavaScript + Vite (Three.js for the hero only) · Firebase: Auth, Firestore, Cloud Functions, Storage, Hosting.
+Vanilla JavaScript + Vite (Three.js for the hero only) · Firebase (Auth + Firestore, free Spark plan) · Vercel (website + server code in `api/`, free Hobby plan) · Vercel Blob (product photos).
 
 ## Run it locally (no real data is touched)
 
@@ -11,7 +11,7 @@ npm install
 npm run emulators   # Firebase emulators (needs Java 21+); UI at http://localhost:4000
 npm run dev         # storefront http://localhost:5181 · admin http://localhost:5181/admin
 npm run check       # secret scan, lint, type-check, unit tests, production build
-npm run test:emulator   # security-rules and Cloud Functions tests against the emulators
+npm run test:emulator   # security rules, server logic and API tests against the emulators
 ```
 
 `npm run dev` talks to the emulators, never to the live project.

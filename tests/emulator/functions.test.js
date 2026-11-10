@@ -15,7 +15,6 @@ const PROJECT = "demo-italianshoes";
 assert.ok(process.env.FIRESTORE_EMULATOR_HOST, "run via `npm run test:emulator`");
 
 const db = getFirestore(initializeApp({ projectId: PROJECT }, "emulator-tests"));
-const FUNCTIONS = `http://${process.env.FUNCTIONS_EMULATOR_HOST ?? "127.0.0.1:5001"}/${PROJECT}/asia-south1`;
 
 before(async () => {
   // Start from an empty database.
@@ -46,18 +45,6 @@ test("migrate script refuses to run without the emulator or explicit production 
   delete env.FIRESTORE_EMULATOR_HOST;
   await assert.rejects(run(process.execPath, ["functions/scripts/migrate.mjs"], { env }), /No emulator found/);
   await assert.rejects(run(process.execPath, ["functions/scripts/migrate.mjs", "--production"], { env }), /without --project/);
-});
-
-test("healthCheck reports Firestore reachable, rejects other methods, exposes no data", async () => {
-  const ok = await fetch(`${FUNCTIONS}/healthCheck`);
-  assert.equal(ok.status, 200);
-  const body = await ok.json();
-  assert.deepEqual(Object.keys(body).sort(), ["firestore", "migrationsApplied", "ok"]);
-  assert.equal(body.ok, true);
-  assert.equal(body.migrationsApplied, 1);
-
-  const post = await fetch(`${FUNCTIONS}/healthCheck`, { method: "POST" });
-  assert.equal(post.status, 405);
 });
 
 test("rate limiter allows up to the limit, then blocks with retry time; buckets are per action and per caller", async () => {

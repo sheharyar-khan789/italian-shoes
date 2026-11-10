@@ -13,6 +13,7 @@
  * Prices are rupees here (the database holds paisa).
  */
 import { firebase, imageUrl } from "../app/firebase.js";
+import { callApi } from "../app/api.js";
 import { toProduct as convert } from "./product.js";
 
 const toProduct = (id, d, refs) => convert(id, d, refs, imageUrl);
@@ -82,9 +83,7 @@ export async function loadReviews(productId) {
 
 /** Send a review (the server checks the customer received the product). */
 export async function submitReview(input) {
-  const { functions } = await firebase();
-  const { httpsCallable } = await import("firebase/functions");
-  return (await httpsCallable(functions, "submitReview", { timeout: 30000 })(input)).data;
+  return callApi("submitReview", input);
 }
 
 /* ───────── Wishlist (private to the signed-in customer) ───────── */

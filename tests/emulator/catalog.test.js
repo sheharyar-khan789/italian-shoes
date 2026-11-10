@@ -1,22 +1,15 @@
 /**
- * Catalogue, products, variants, stock and images against the emulators (`npm run test:emulator`).
+ * Catalogue, products, variants and stock against the emulators (`npm run test:emulator`); photos are tested in images.test.js.
  * Catalogue entries below are test fixtures in a throwaway "demo-" database, not store data.
  */
 import { test, before } from "node:test";
 import assert from "node:assert/strict";
-import { createRequire } from "node:module";
 
 const PROJECT = "demo-italianshoes";
-const BUCKET = `${PROJECT}.appspot.com`;
-assert.ok(process.env.FIRESTORE_EMULATOR_HOST && process.env.FIREBASE_STORAGE_EMULATOR_HOST, "run via `npm run test:emulator`");
+assert.ok(process.env.FIRESTORE_EMULATOR_HOST, "run via `npm run test:emulator`");
 process.env.GCLOUD_PROJECT ??= PROJECT;
-process.env.FIREBASE_CONFIG ??= JSON.stringify({ projectId: PROJECT, storageBucket: BUCKET });
 
 const { db } = await import("../../functions/lib/admin.js");
-// Resolve packages from functions/ so the test shares the same Admin SDK instance as the services.
-const fromFunctions = createRequire(new URL("../../functions/package.json", import.meta.url));
-const { getStorage } = fromFunctions("firebase-admin/storage");
-const sharp = fromFunctions("sharp");
 const catalog = await import("../../functions/services/catalog.js");
 const products = await import("../../functions/services/products.js");
 const inventory = await import("../../functions/services/inventory.js");
@@ -134,62 +127,4 @@ test("low-stock and sold-out alerts fire once when crossing the line", async () 
   assert.equal(await notes("stock.low"), lowBefore + 1);
   await inventory.adjustStock({ productId: ids.p, variantId: ids.v, change: -1, reason: "correction", note: "Recount" }, ACTOR); // 2 → 1: still low, no repeat
   assert.equal(await notes("stock.low"), lowBefore + 1);
-});
-
-/* ───────── Images: real Storage trigger in the Functions emulator ───────── */
-
-async function upload(name, buffer, contentType) {
-  const uploadId = `${name}${Date.now()}`;
-  await getStorage().bucket(BUCKET).file(`products/${ids.p}/uploads/${uploadId}`).save(buffer, { contentType, metadata: { metadata: { uploadedBy: ACTOR } } });
-  // The first photo can wait a while: the emulator starts the function lazily on the first upload.
-  for (let i = 0; i < 240; i++) {
-    const snap = await db.doc(`uploads/${uploadId}`).get();
-    if (snap.exists) return snap.data();
-    await new Promise((r) => setTimeout(r, 500));
-  }
-  throw new Error("Image function didn't respond");
-}
-
-test("a real photo is checked, resized to three WebP sizes, stripped of metadata and added as the main image", async () => {
-  const photo = await sharp({ create: { width: 2000, height: 1500, channels: 3, background: "#5a3a26" } })
-    .withExif({ IFD0: { Copyright: "secret-camera-data" } })
-    .jpeg()
-    .toBuffer();
-  const r = await upload("ok", photo, "image/jpeg");
-  assert.equal(r.status, "done", r.reason);
-
-  const p = (await db.doc(`products/${ids.p}`).get()).data();
-  assert.equal(p.images.length, 1);
-  assert.equal(p.images[0].isPrimary, true);
-  const bucket = getStorage().bucket(BUCKET);
-  for (const w of [400, 800, 1600]) {
-    const [buf] = await bucket.file(p.images[0].paths[w]).download();
-    const meta = await sharp(buf).metadata();
-    assert.equal(meta.format, "webp");
-    assert.equal(meta.width, w);
-    assert.equal(meta.exif, undefined, "metadata removed");
-  }
-  const [originals] = await bucket.getFiles({ prefix: `products/${ids.p}/uploads/` });
-  assert.equal(originals.length, 0, "original deleted");
-});
-
-test("fake or tiny images are rejected with a clear reason", async () => {
-  const fake = await upload("fake", Buffer.from("<script>alert(1)</script> not really a jpeg"), "image/jpeg");
-  assert.equal(fake.status, "rejected");
-  assert.match(fake.reason, /valid image/);
-
-  const tiny = await upload("tiny", await sharp({ create: { width: 120, height: 120, channels: 3, background: "#000" } }).png().toBuffer(), "image/png");
-  assert.equal(tiny.status, "rejected");
-  assert.match(tiny.reason, /too small/);
-  assert.equal((await db.doc(`products/${ids.p}`).get()).data().images.length, 1, "rejected files never reach the product");
-});
-
-test("with a photo and stock, the product can be published; archived products keep their data", async () => {
-  await products.setProductStatus(ids.p, "published", ACTOR);
-  const p = (await db.doc(`products/${ids.p}`).get()).data();
-  assert.equal(p.status, "published");
-  assert.ok(p.publishedAt);
-  await products.setProductStatus(ids.p, "archived", ACTOR);
-  assert.equal((await db.doc(`products/${ids.p}`).get()).data().status, "archived");
-  await assert.rejects(catalog.deleteCatalogItem("color", ids.black, ACTOR), (e) => e.code === "failed-precondition", "colour in use can't be deleted");
 });

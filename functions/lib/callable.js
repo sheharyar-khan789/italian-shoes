@@ -1,36 +1,33 @@
-import "./options.js"; // region and limits before any function is created
 /**
- * The ONE way to create a callable Cloud Function in this project. It applies, in order:
+ * The ONE way to define a server endpoint in this project (it runs on Vercel, in api/[fn].js).
+ * An endpoint is defined with secureCallable(); runEndpoint() then applies, in order:
  *
- *   1. App Check     — rejects requests that don't come from the real website (when enabled)
- *   2. Auth          — `auth: "required"` rejects signed-out callers
- *   3. Permission    — `permission: "orders.update"` checks the caller's staff custom claims
- *   4. Rate limit    — per user (or per IP when signed out)
- *   5. Validation    — the shared Zod schema; only cleaned data reaches the handler
- *   6. Safe errors   — internal errors never reach the browser
+ *   1. Auth          — the Firebase ID token in "Authorization: Bearer <token>" is VERIFIED by the Admin SDK
+ *   2. Permission    — `permission: "orders.update"` checks the staff custom claims inside that token,
+ *                      and (for staff) that the account is still enabled and not revoked
+ *   3. Rate limit    — per user (or per IP when signed out), stored in Firestore
+ *   4. Validation    — the shared Zod schema; only cleaned data reaches the handler
+ *   5. Safe errors   — internal errors never reach the browser (see errors.js)
  *
- * Usage (from Phase 3):
+ * Usage:
  *   export const placeOrder = secureCallable("placeOrder",
- *     { auth: "optional", schema: placeOrderSchema, rateLimit: { limit: 10, windowSeconds: 600 } },
+ *     { auth: "required", schema: placeOrderSchema, rateLimit: { limit: 10, windowSeconds: 600 } },
  *     async ({ data, uid }) => orders.place(data, uid));
  */
-import { onCall } from "firebase-functions/v2/https";
-import { AppError, safeHandler } from "./errors.js";
+import { AppError, toApiError } from "./errors.js";
 import { auth as adminAuth } from "./admin.js";
 import { parse } from "./validate.js";
 import { consumeRateLimit, callerIp } from "./rateLimit.js";
 
-/**
- * App Check is enforced in production once a reCAPTCHA Enterprise key is configured
- * (APP_CHECK_ENFORCE=true in functions/.env.<project>). Never in the emulators.
- */
-export const appCheckEnforced = () => process.env.FUNCTIONS_EMULATOR !== "true" && process.env.APP_CHECK_ENFORCE === "true";
-
-/** Default limit when a function doesn't set its own: 60 calls per minute per caller. */
+/** Default limit when an endpoint doesn't set its own: 60 calls per minute per caller. */
 const DEFAULT_RATE_LIMIT = { limit: 60, windowSeconds: 60 };
 
 /**
- * @template T
+ * @typedef {{ data: any, uid: string | null, token: Record<string, any> | null }} Ctx
+ * @typedef {{ __endpoint: true, name: string, options: { auth: "required" | "optional", permission?: string, schema?: import("zod").ZodType, rateLimit: { limit: number, windowSeconds: number } | false }, handler: (ctx: Ctx) => Promise<any> }} Endpoint
+ */
+
+/**
  * @param {string} name
  * @param {{
  *   auth?: "required" | "optional",
@@ -38,29 +35,55 @@ const DEFAULT_RATE_LIMIT = { limit: 60, windowSeconds: 60 };
  *   schema?: import("zod").ZodType,
  *   rateLimit?: { limit: number, windowSeconds: number } | false,
  * }} options
- * @param {(ctx: { data: any, uid: string | null, token: Record<string, any> | null, request: import("firebase-functions/v2/https").CallableRequest }) => Promise<T>} handler
+ * @param {(ctx: Ctx) => Promise<any>} handler
+ * @returns {Endpoint}
  */
 export function secureCallable(name, options, handler) {
   const { auth = "required", permission, schema, rateLimit = DEFAULT_RATE_LIMIT } = options;
   if (permission && auth !== "required") throw new Error(`${name}: a permission check requires auth: "required"`);
+  return { __endpoint: true, name, options: { auth, permission, schema, rateLimit }, handler };
+}
 
-  return onCall(
-    { enforceAppCheck: appCheckEnforced(), consumeAppCheckToken: false },
-    safeHandler(name, async (request) => {
-      const uid = request.auth?.uid ?? null;
-      const token = request.auth?.token ?? null;
+/** Verify a Firebase ID token. Rejects expired or forged tokens. @param {string} idToken */
+const defaultVerify = (idToken) => adminAuth.verifyIdToken(idToken);
 
-      if (auth === "required" && !uid) throw new AppError("unauthenticated", "Please sign in to continue.");
-      if (permission) {
-        if (!hasPermission(token, permission)) throw new AppError("permission-denied", "You don't have permission to do this.");
-        await assertSessionStillValid(uid, token);
+/**
+ * Run one request through an endpoint. Never throws: returns the HTTP status and JSON body to send.
+ * @param {Endpoint} endpoint
+ * @param {{ authorization?: string, body: unknown, headers?: Record<string, any> }} req
+ * @param {{ verifyToken?: (idToken: string) => Promise<Record<string, any>> }} [deps]
+ * @returns {Promise<{ status: number, body: Record<string, any> }>}
+ */
+export async function runEndpoint(endpoint, req, { verifyToken = defaultVerify } = {}) {
+  const { name, options, handler } = endpoint;
+  try {
+    /** @type {Record<string, any> | null} */
+    let token = null;
+    const bearer = /^Bearer (.+)$/i.exec(req.authorization ?? "")?.[1];
+    if (bearer) {
+      try {
+        token = await verifyToken(bearer);
+      } catch {
+        throw new AppError("unauthenticated", "Your session has expired. Please sign in again.");
       }
-      if (rateLimit) await consumeRateLimit(name, uid ?? `ip:${callerIp(request.rawRequest)}`, rateLimit);
+    }
+    const uid = token?.uid ?? null;
 
-      const data = schema ? parse(schema, request.data) : request.data;
-      return handler({ data, uid, token, request });
-    }),
-  );
+    if (options.auth === "required" && !uid) throw new AppError("unauthenticated", "Please sign in to continue.");
+    if (options.permission) {
+      if (!hasPermission(token, options.permission)) throw new AppError("permission-denied", "You don't have permission to do this.");
+      await assertSessionStillValid(/** @type {string} */ (uid), /** @type {Record<string, any>} */ (token));
+    }
+    if (options.rateLimit) await consumeRateLimit(name, uid ?? `ip:${callerIp({ headers: req.headers })}`, options.rateLimit);
+
+    // The browser sends { data: ... }; anything else is treated as no data.
+    const raw = req.body && typeof req.body === "object" && "data" in req.body ? /** @type {any} */ (req.body).data : undefined;
+    const data = options.schema ? parse(options.schema, raw) : raw;
+    const result = await handler({ data, uid, token });
+    return { status: 200, body: { data: result ?? null } };
+  } catch (error) {
+    return toApiError(error, name);
+  }
 }
 
 /**
@@ -78,7 +101,7 @@ export function hasPermission(token, permission) {
  * @param {string} uid
  * @param {Record<string, any>} token
  */
-async function assertSessionStillValid(uid, token) {
+export async function assertSessionStillValid(uid, token) {
   const user = await adminAuth.getUser(uid);
   if (user.disabled) throw new AppError("permission-denied", "This account has been disabled.");
   const validAfter = user.tokensValidAfterTime ? Date.parse(user.tokensValidAfterTime) / 1000 : 0;

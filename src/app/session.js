@@ -6,6 +6,7 @@
  * `perms` only choose what to show.
  */
 import { firebase } from "./firebase.js";
+import { callApi } from "./api.js";
 import { friendlyAuthError } from "./authErrors.js";
 import { signUpSchema, signInSchema, profileSchema, savedAddressSchema, email as emailSchema, passwordSchema, fieldErrors } from "../../shared/schemas/index.js";
 
@@ -237,9 +238,8 @@ export async function deleteAddress(id) {
 /** First-time setup: claim the Owner role (the server checks the configured owner email). */
 export async function claimOwnership() {
   try {
-    const { functions, auth } = await firebase();
-    const { httpsCallable } = await import("firebase/functions");
-    await httpsCallable(functions, "claimOwner")();
+    const { auth } = await firebase();
+    await callApi("claimOwner");
     await auth.currentUser?.getIdToken(true); // pick up the new claims now
     return { ok: true };
   } catch (error) {

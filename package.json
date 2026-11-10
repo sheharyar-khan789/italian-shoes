@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite --port 5181 --strictPort",
-    "build": "vite build",
+    "build": "node functions/scripts/sync-shared.mjs && vite build",
     "preview": "vite preview",
     "pretest": "node functions/scripts/sync-shared.mjs",
     "test": "node --test \"tests/unit/*.test.js\"",
@@ -18,7 +18,10 @@
     "check": "npm run secrets && npm run lint && npm run typecheck && npm test && npm run build"
   },
   "dependencies": {
+    "@vercel/blob": "2.9.0",
     "firebase": "13.1.0",
+    "firebase-admin": "14.5.0",
+    "sharp": "0.35.5",
     "three": "^0.170.0",
     "zod": "4.6.7"
   },
@@ -27,7 +30,6 @@
     "@firebase/rules-unit-testing": "6.0.0",
     "@types/node": "26.6.5",
     "eslint": "10.13.0",
-    "firebase-admin": "14.5.0",
     "firebase-tools": "15.34.0",
     "globals": "17.13.0",
     "typescript": "6.0.3",
