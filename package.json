@@ -22,7 +22,7 @@
     "firebase": "13.1.0",
     "firebase-admin": "14.5.0",
     "sharp": "0.35.5",
-    "three": "^0.170.0",
+    "three": "^0.187.0",
     "zod": "4.6.7"
   },
   "devDependencies": {
