@@ -1,5 +1,5 @@
 /**
- * Every server endpoint, by name. api/[fn].js looks the requested name up here.
+ * Every server endpoint, by name. api/call.js looks the requested name up here.
  * (Cloud Functions are not used: the project stays on free plans, so the same code runs on Vercel.)
  */
 import * as staff from "./callable/staff.js";

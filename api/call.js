@@ -1,5 +1,6 @@
 /**
- * Vercel serverless entry for every server endpoint: POST /api/<name> with a Firebase ID token.
+ * Vercel serverless entry for every server endpoint: POST /api/<name> with a Firebase ID token
+ * (vercel.json rewrites /api/<name> to /api/call?fn=<name>).
  * One file on purpose (free Vercel plans limit how many separate functions a project may have).
  * All the logic lives in functions/ (handler.js → lib/callable.js → services/).
  */

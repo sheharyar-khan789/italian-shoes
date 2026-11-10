@@ -33,7 +33,7 @@ const adminRoute = {
 };
 
 /**
- * Local /api for `npm run dev`: runs the same handler Vercel runs (api/[fn].js), against the Firebase
+ * Local /api for `npm run dev`: runs the same handler Vercel runs (api/call.js), against the Firebase
  * EMULATORS (never the live project) unless real credentials are present in the environment.
  */
 const apiDev = {

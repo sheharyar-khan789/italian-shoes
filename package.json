@@ -41,6 +41,7 @@
   "overrides": {
     "@firebase/firestore": {
       "@grpc/grpc-js": "1.13.7"
-    }
+    },
+    "jwks-rsa": "3.2.2"
   }
 }

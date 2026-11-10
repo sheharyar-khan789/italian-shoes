@@ -10,7 +10,9 @@ let ready;
 
 /** Loads the shop from the database. On failure `error` is set so views can offer a retry. */
 export function reloadCatalog() {
+  // One quiet retry: a slow or briefly blocked first connection shouldn't show an error page.
   ready = loadStore()
+    .catch(() => new Promise((resolve) => setTimeout(resolve, 1500)).then(loadStore))
     .then((c) => {
       catalog = { ...c, error: false };
       settings = c.settings ?? {};

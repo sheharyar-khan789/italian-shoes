@@ -6,8 +6,8 @@
   "cleanUrls": false,
   "rewrites": [
     {
-      "source": "/api/(.*)",
-      "destination": "/api/$1"
+      "source": "/api/:fn",
+      "destination": "/api/call?fn=:fn"
     },
     {
       "source": "/admin",

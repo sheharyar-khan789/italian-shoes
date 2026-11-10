@@ -1,6 +1,6 @@
 /**
  * HTTP layer for the endpoints, independent of Vercel so it can be tested directly.
- * api/[fn].js passes each request here and sends back what it returns.
+ * api/call.js passes each request here and sends back what it returns.
  */
 import { endpoints } from "./registry.js";
 import { runEndpoint } from "./lib/callable.js";

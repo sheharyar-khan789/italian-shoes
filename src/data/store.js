@@ -19,7 +19,7 @@ import { toProduct as convert } from "./product.js";
 const toProduct = (id, d, refs) => convert(id, d, refs, imageUrl);
 
 const fs = () => import("firebase/firestore");
-const TIMEOUT_MS = 12000;
+const TIMEOUT_MS = 20000;
 /** @template T @param {Promise<T>} p @returns {Promise<T>} */
 const limit = (p) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error("timeout")), TIMEOUT_MS))]);
 

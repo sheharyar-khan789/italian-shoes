@@ -36,7 +36,7 @@ Italian Shoes e-commerce platform. Vite + vanilla JavaScript in the browser, Fir
 | `shared/orderStatus.js` | Allowed order and payment status changes. |
 | `shared/permissions.js` | Permission keys and default staff roles. |
 | `shared/schemas/` | Zod validation schemas (products, variants, stock adjustments, checkout, coupons, shipping, settings). |
-| `api/` | Vercel entry points: `[fn].js` (every endpoint, POST `/api/<name>`) and `blobUpload.js` (photo-upload tokens). |
+| `api/` | Vercel entry points: `call.js` (every endpoint, POST `/api/<name>`) and `blobUpload.js` (photo-upload tokens). |
 | `functions/` | Server code (name kept from the first design). Runs inside `api/`; no Cloud Functions are deployed. |
 | `functions/registry.js`, `functions/handler.js` | Every endpoint by name, and the HTTP layer around it. |
 | `functions/lib/` | Admin SDK setup, safe errors, secret-free logging, input validation, rate limiting, and **`callable.js` — the only way to create a callable function** (App Check, sign-in, permission, rate limit, validation, safe errors in one place). |

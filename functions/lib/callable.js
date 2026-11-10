@@ -1,5 +1,5 @@
 /**
- * The ONE way to define a server endpoint in this project (it runs on Vercel, in api/[fn].js).
+ * The ONE way to define a server endpoint in this project (it runs on Vercel, in api/call.js).
  * An endpoint is defined with secureCallable(); runEndpoint() then applies, in order:
  *
  *   1. Auth          — the Firebase ID token in "Authorization: Bearer <token>" is VERIFIED by the Admin SDK
