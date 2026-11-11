@@ -28,10 +28,13 @@ async function list(path, ...order) {
 
 /* ───────── Catalogue building blocks ───────── */
 
-export const listCategories = () => list("categories", ["sortOrder"], ["name"]);
+// Sorting by TWO fields would need a composite index in the live database (the emulator doesn't check),
+// so these read the (small) collection and sort here.
+const byText = (a, b) => String(a ?? "").localeCompare(String(b ?? ""), undefined, { numeric: true });
+export const listCategories = async () => (await list("categories")).sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || byText(a.name, b.name));
 export const listBrands = () => list("brands", ["name"]);
 export const listColors = () => list("colors", ["name"]);
-export const listSizes = () => list("sizes", ["system"], ["sortOrder"]);
+export const listSizes = async () => (await list("sizes")).sort((a, b) => byText(a.system, b.system) || (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
 
 /* ───────── Products ───────── */
 
