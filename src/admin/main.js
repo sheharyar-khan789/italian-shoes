@@ -8,6 +8,9 @@ import { esc } from "../lib/format.js";
 import { field, formValues, showResult, busy } from "../ui/forms.js";
 import { mountShell } from "./shell.js";
 import * as session from "../app/session.js";
+import { reloadWhenUpdated } from "../app/updateReload.js";
+
+reloadWhenUpdated();
 
 const root = /** @type {HTMLElement} */ (document.getElementById("admin"));
 const brand = `<a class="brand" href="/" aria-label="Back to the store"><span class="brand__mark" aria-hidden="true"></span><span class="brand__word">Italian Shoes</span></a>`;

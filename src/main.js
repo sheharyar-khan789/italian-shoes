@@ -15,6 +15,7 @@ import { wishlistView } from "./views/wishlist.js";
 import { startSession } from "./app/session.js";
 import { bindAccountLink } from "./ui/layout.js";
 import { initLuxury } from "./ui/luxury.js";
+import { reloadWhenUpdated } from "./app/updateReload.js";
 
 route(/^\/$/, home, "home");
 route(/^\/shop(?:\/([\w-]+))?$/, shop, "shop");
@@ -41,6 +42,7 @@ const reveal = () => document.body.classList.add("is-revealed");
 requestAnimationFrame(reveal);
 setTimeout(reveal, 250); // rAF can be throttled in background tabs
 
+reloadWhenUpdated();
 bindMediaEvents();
 initLuxury();
 whenCatalog().then(applyStoreConfig);
