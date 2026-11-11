@@ -496,3 +496,19 @@ html {
   border: 2px solid #0b0f0d;
   border-radius: 8px;
 }
+
+/* Mobile menu: show the account link there (hidden in the desktop bar, which has its own icon). */
+@media (max-width: 1080px) {
+  .site-nav__secondary .nav-mobile-only {
+    display: list-item;
+  }
+}
+
+/* Desktop bar: shop links and information links side by side, centred. */
+@media (min-width: 1081px) {
+  .site-nav {
+    display: flex;
+    align-items: center;
+    gap: clamp(24px, 3vw, 52px);
+  }
+}
