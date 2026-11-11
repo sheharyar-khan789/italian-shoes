@@ -87,14 +87,22 @@ export function mountShell(root, user) {
       return;
     }
     document.title = `${mod.label} — Admin`;
-    main.innerHTML = loading();
+    // Each page draws into its OWN container. If the person opens another page while this one is still
+    // loading (slow connections), the old page keeps writing into a container that is no longer shown.
+    const page = document.createElement("div");
+    page.innerHTML = loading();
+    main.replaceChildren(page);
     try {
       const view = (await mod.load()).default;
-      cleanup = await view({ main, user, params: subPath(location.pathname, mod), navigate: go });
+      const result = await view({ main: page, user, params: subPath(location.pathname, mod), navigate: go });
+      if (page.isConnected) cleanup = result;
+      else if (typeof result === "function") result();
     } catch (error) {
       console.error(error);
-      main.innerHTML = errorState();
-      main.querySelector("[data-retry]")?.addEventListener("click", render);
+      if (page.isConnected) {
+        page.innerHTML = errorState();
+        page.querySelector("[data-retry]")?.addEventListener("click", render);
+      }
     }
     main.focus({ preventScroll: true });
   }

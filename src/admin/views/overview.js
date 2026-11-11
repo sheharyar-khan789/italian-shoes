@@ -11,8 +11,12 @@ export default async function overview({ main, user }) {
   const can = (p) => user.perms.includes(p);
   const first = (user.name || user.email || "").split(/[\s@]/)[0];
 
+  // The reads below can be slow on a weak connection; if the person has opened another page by then,
+  // this view must stop quietly instead of writing into the new page.
+  const alive = () => main.isConnected && main.querySelector("[data-overview]") !== null;
+
   main.innerHTML = `
-    <div class="adm-page">
+    <div class="adm-page" data-overview>
       <header class="adm-page__head">
         <h1 class="adm-h1">Hello, <em>${esc(first)}</em></h1>
         <p class="muted">Here's the store at a glance. Every figure on this page comes from the live database.</p>
@@ -25,10 +29,7 @@ export default async function overview({ main, user }) {
 
       <section aria-labelledby="ov-sales" class="adm-section">
         <h2 id="ov-sales" class="adm-h2">Orders &amp; revenue</h2>
-        ${emptyState({
-          title: "No orders yet",
-          text: "Online ordering opens in Phase 6. Order counts, revenue and sales over time will appear here — calculated only from real orders.",
-        })}
+        <p class="muted">New orders appear under <a class="text-link" href="/admin/orders" data-link>Orders</a>. Sales, best sellers and stock figures, calculated only from real orders, are in <a class="text-link" href="/admin/reports" data-link>Analytics &amp; reports</a>.</p>
       </section>
 
       <section aria-labelledby="ov-setup" class="adm-section">
@@ -56,6 +57,7 @@ export default async function overview({ main, user }) {
   if (!figures.length) stats.innerHTML = `<p class="muted">Your role doesn't include customer or staff figures.</p>`;
   else {
     const results = await Promise.allSettled(figures.map((f) => f.load()));
+    if (!alive()) return;
     stats.innerHTML = results
       .map((r, i) => statCard({ label: figures[i].label, value: r.status === "fulfilled" ? r.value : "—", note: r.status === "fulfilled" ? "" : "Couldn't load — refresh to try again" }))
       .join("");
@@ -67,6 +69,7 @@ export default async function overview({ main, user }) {
     settingsKnown = false;
     return { public: null, private: null };
   });
+  if (!alive()) return;
   const items = [
     { done: true, text: "Owner account and staff roles are set up" },
     {
@@ -74,9 +77,10 @@ export default async function overview({ main, user }) {
       text: settingsKnown ? "Store details saved (name, contact, address)" : "Store details — couldn't check right now",
       href: can("settings.manage") ? "/admin/settings" : "",
     },
-    { done: false, text: "Add products, sizes, colours and stock", later: "Phase 5" },
-    { done: false, text: "Set delivery methods and charges", later: "Phase 7" },
-    { done: false, text: "Open online ordering (Cash on Delivery)", later: "Phase 6" },
+    { done: false, text: "Add categories, colours and sizes", href: "/admin/categories" },
+    { done: false, text: "Add products with photos, prices and stock", href: "/admin/products" },
+    { done: false, text: "Set delivery methods and charges (customers can't check out without them)", href: "/admin/shipping" },
+    { done: false, text: "Write your About, Shipping, Returns, Privacy and Terms pages", href: "/admin/content" },
   ];
   main.querySelector("[data-checklist]").innerHTML = items
     .map(
@@ -94,11 +98,12 @@ export default async function overview({ main, user }) {
   if (act) {
     try {
       const { items: logs } = await listActivity({ pageSize: 5 });
+      if (!alive()) return;
       act.innerHTML = logs.length
         ? `<ul class="adm-feed">${logs.map((l) => `<li><span>${esc(describeActivity(l))}</span><span class="muted">${esc(formatWhen(l.at))}</span></li>`).join("")}</ul>`
         : emptyState({ title: "No activity yet", text: "Staff actions such as role changes and settings updates are recorded here." });
     } catch {
-      act.innerHTML = `<p class="muted">Activity couldn't be loaded.</p>`;
+      if (alive()) act.innerHTML = `<p class="muted">Activity couldn't be loaded.</p>`;
     }
   }
 }

@@ -12,7 +12,7 @@ const fs = () => import("firebase/firestore");
  * at "Loading…" forever. Every admin read gives up after this long, so the page can show an error
  * with a "Try again" button instead.
  */
-export const TIMEOUT_MS = 12000;
+export const TIMEOUT_MS = 40000;
 // Admin reads use getDoc(s)FromServer: if the server can't be reached they fail visibly, instead
 // of answering from the local cache (which can be empty) and wrongly showing "nothing here".
 /** @template T @param {Promise<T>} promise @returns {Promise<T>} */

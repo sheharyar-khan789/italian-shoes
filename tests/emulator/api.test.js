@@ -74,3 +74,19 @@ test("rate limits answer 429 with a safe message", async () => {
 test("responses are never cached", async () => {
   assert.equal((await call("placeOrder")).headers["Cache-Control"], "no-store");
 });
+
+test("the public catalog is cached, lists only published products, and has plain-JSON dates", async () => {
+  await db.doc("settings/public").set({ storeName: "Test Store" });
+  await db.doc("categories/c1").set({ name: "Formal", slug: "formal", isActive: true });
+  const { Timestamp } = await import("../../functions/lib/admin.js");
+  await db.doc("products/live").set({ name: "Live", slug: "live", status: "published", publishedAt: Timestamp.fromDate(new Date("2026-01-02T03:04:05Z")), summary: {} });
+  await db.doc("products/hidden").set({ name: "Hidden", slug: "hidden", status: "draft", summary: {} });
+  const res = await call("catalog", { method: "GET", body: undefined });
+  assert.equal(res.status, 200);
+  assert.match(res.headers["Cache-Control"], /s-maxage=30/);
+  assert.equal(res.body.settings.storeName, "Test Store");
+  assert.deepEqual(res.body.products.map((p) => p.slug), ["live"]);
+  assert.equal(res.body.products[0].publishedAt, "2026-01-02T03:04:05.000Z");
+  assert.equal(JSON.parse(JSON.stringify(res.body)).categories[0].slug, "formal");
+  assert.equal((await call("catalog", { method: "POST" })).status, 405);
+});

@@ -3,7 +3,7 @@
  * storefront views use. Pure: no network, so it is unit-tested. Prices become rupees.
  */
 const rupees = (paisa) => (paisa == null ? 0 : paisa / 100);
-const iso = (ts) => (ts?.toDate ? ts.toDate().toISOString() : new Date(0).toISOString());
+const iso = (ts) => (ts?.toDate ? ts.toDate().toISOString() : typeof ts === "string" ? ts : new Date(0).toISOString());
 
 /** @param {string} id @param {any} d @param {{ colors: Map<string, any>, sizes: Map<string, any> }} refs */
 export function toProduct(id, d, refs, urlOf = (p) => p) {

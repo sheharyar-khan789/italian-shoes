@@ -24,11 +24,35 @@ const TIMEOUT_MS = 20000;
 const limit = (p) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error("timeout")), TIMEOUT_MS))]);
 
 
-/** One round of public reads. Rejects when the database can't be reached. */
-export async function loadStore() {
+/**
+ * Turn the raw public data ({ settings, home, categories[], colors[], sizes[], products[] }, each item with its id)
+ * into what the storefront uses.
+ */
+function assemble(raw) {
+  const colors = new Map(raw.colors.map((c) => [c.id, c]));
+  const sizes = new Map(raw.sizes.map((s) => [s.id, s]));
+  const categories = raw.categories
+    .map((c) => ({ id: c.id, slug: c.slug, name: c.name, blurb: c.description ?? "", parentId: c.parentId ?? null, isActive: c.isActive !== false, sortOrder: c.sortOrder ?? 0 }))
+    .filter((c) => c.isActive)
+    .sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name));
+  const products = raw.products.map((p) => toProduct(p.id, p, { colors, sizes })).filter((p) => p.slug && p.colors.length);
+  const colorFamilies = [...colors.entries()].map(([id, c]) => ({ id, name: c.name, hex: c.hex }));
+  return { settings: raw.settings ?? {}, categories, products, colorFamilies, home: raw.home ?? null };
+}
+
+/** Fast path: the store's own server (cached at the edge, so it also saves database reads). */
+async function loadFromServer() {
+  const res = await fetch("/api/catalog", { signal: AbortSignal.timeout(15000) });
+  if (!res.ok) throw new Error(`catalog ${res.status}`);
+  return assemble(await res.json());
+}
+
+/** Fallback: read the public collections straight from Firestore. */
+async function loadFromFirestore() {
   const { db } = await firebase();
   const f = await fs();
   const col = (name, ...c) => f.query(f.collection(db, name), ...c);
+  const withId = (snap) => snap.docs.map((d) => ({ id: d.id, ...d.data() }));
   const [settings, cats, cols, szs, prods, home] = await limit(
     Promise.all([
       f.getDoc(f.doc(db, "settings", "public")),
@@ -39,15 +63,16 @@ export async function loadStore() {
       f.getDoc(f.doc(db, "content", "home")),
     ]),
   );
-  const colors = new Map(cols.docs.map((d) => [d.id, d.data()]));
-  const sizes = new Map(szs.docs.map((d) => [d.id, d.data()]));
-  const categories = cats.docs
-    .map((d) => ({ id: d.id, slug: d.data().slug, name: d.data().name, blurb: d.data().description ?? "", parentId: d.data().parentId ?? null, isActive: d.data().isActive !== false, sortOrder: d.data().sortOrder ?? 0 }))
-    .filter((c) => c.isActive)
-    .sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name));
-  const products = prods.docs.map((d) => toProduct(d.id, d.data(), { colors, sizes })).filter((p) => p.slug && p.colors.length);
-  const colorFamilies = [...colors.entries()].map(([id, c]) => ({ id, name: c.name, hex: c.hex }));
-  return { settings: settings.exists() ? settings.data() : {}, categories, products, colorFamilies, home: home.exists() ? home.data() : null };
+  return assemble({ settings: settings.exists() ? settings.data() : {}, home: home.exists() ? home.data() : null, categories: withId(cats), colors: withId(cols), sizes: withId(szs), products: withId(prods) });
+}
+
+/** One round of public reads. Rejects only when neither the server nor the database can be reached. */
+export async function loadStore() {
+  try {
+    return await loadFromServer();
+  } catch {
+    return loadFromFirestore();
+  }
 }
 
 /* ───────── Owner-written content ───────── */

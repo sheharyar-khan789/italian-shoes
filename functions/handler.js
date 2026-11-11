@@ -6,6 +6,7 @@ import { endpoints } from "./registry.js";
 import { runEndpoint } from "./lib/callable.js";
 import { db } from "./lib/admin.js";
 import { log } from "./lib/logger.js";
+import { loadPublicCatalog } from "./services/publicCatalog.js";
 
 /**
  * @param {{ method: string, name: string, headers: Record<string, any>, body: unknown }} req
@@ -23,6 +24,17 @@ export async function handleApi({ method, name, headers, body }, deps) {
     } catch (error) {
       log.error("Health check: Firestore unreachable", error);
       return { status: 503, body: { ok: false, firestore: "unreachable" }, headers: noStore };
+    }
+  }
+
+  if (name === "catalog") {
+    if (method !== "GET") return { status: 405, body: { error: { code: "invalid-argument", message: "Method not allowed." } }, headers: { ...noStore, Allow: "GET" } };
+    try {
+      // Public data: cached at the edge for 30 s (stale copy served while refreshing), so traffic doesn't hit the database.
+      return { status: 200, body: await loadPublicCatalog(), headers: { "Cache-Control": "public, s-maxage=30, stale-while-revalidate=300" } };
+    } catch (error) {
+      log.error("Catalog unavailable", error);
+      return { status: 503, body: { error: { code: "unavailable", message: "The shop is unavailable right now." } }, headers: noStore };
     }
   }
 

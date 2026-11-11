@@ -32,9 +32,9 @@ export function firebase() {
     // initializeAuth without a popup/redirect resolver: email + password only, so the SDK never
     // loads a hidden iframe (keeps the CSP's frame-src 'none'). Sessions persist across reloads.
     const auth = authMod.initializeAuth(app, { persistence: [authMod.indexedDBLocalPersistence, authMod.browserLocalPersistence] });
-    // Some networks, proxies and antivirus tools block Firestore's streaming connection. Auto-detect lets the
-    // SDK fall back to plain HTTP long-polling, so the shop still loads there.
-    const db = fsMod.initializeFirestore(app, { experimentalAutoDetectLongPolling: true });
+    // Many networks (and some proxies/antivirus tools) block or stall Firestore's streaming connection, and the
+    // SDK then waits ~10 s before falling back. Plain HTTP long-polling works everywhere, so use it from the start.
+    const db = fsMod.initializeFirestore(app, { experimentalForceLongPolling: true });
 
     if (usingEmulators) {
       const host = location.hostname;
