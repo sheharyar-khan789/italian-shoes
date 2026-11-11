@@ -1,7 +1,7 @@
 import { getCatalog, categoryBySlug } from "../app/state.js";
 import { queryProducts, PRICE_BANDS, SORTS, allSizes } from "../lib/shop.js";
 import { esc, pluralize } from "../lib/format.js";
-import { grid, skeletonGrid, bindCardSwatches, emptyState, catalogGate } from "../ui/components.js";
+import { grid, skeletonGrid, bindCardSwatches, emptyState, catalogGate, previewGrid } from "../ui/components.js";
 import { openSheet, closeSheet } from "../ui/layout.js";
 import { navigate } from "../app/router.js";
 
@@ -135,7 +135,7 @@ export default async function shop(ctx) {
     results.innerHTML = list.length
       ? renderPage(list)
       : !scope.length
-        ? `<div class="empty"><p class="empty__title">${category ? "Nothing in this category yet." : "Our collection is being prepared."}</p><p class="empty__text">Please check back soon.</p></div>`
+        ? `${previewGrid()}<div class="empty"><p class="empty__title">${category ? "Nothing in this category yet." : "Our collection is on its way."}</p><p class="empty__text">Real products are being added. Please check back soon.</p></div>`
         : emptyState({
             title: "No styles match these filters.",
             text: "Try removing a size or colour, or browse the full collection.",

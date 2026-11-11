@@ -1,7 +1,7 @@
 import { esc, formatPKR } from "../lib/format.js";
 import { maxQtyFor } from "../lib/cart.js";
 import { colorInStock, inStock, onSale, discountPercent } from "../lib/shop.js";
-import { productMedia } from "./illustration.js";
+import { productMedia, illustration } from "./illustration.js";
 import { isNew, categoryById } from "../app/state.js";
 
 export const arrow = `<span class="btn__arrow" aria-hidden="true"></span>`;
@@ -155,4 +155,28 @@ export async function catalogGate(outlet, retry) {
     reloadCatalog().then(retry);
   });
   return false;
+}
+
+/**
+ * Picture-only placeholders shown while the store has NO real products yet. They are labelled as sample
+ * pictures, have no price and no buy button, and are never rendered once a real product is published.
+ */
+export function previewGrid() {
+  const samples = [
+    { style: "sneaker", color: { hex: "#c99389", sole: "#ece6dc" } },
+    { style: "loafer", color: { hex: "#6b4429", sole: "#2a1d14" } },
+    { style: "oxford", color: { hex: "#1f1d1b", sole: "#141210" } },
+    { style: "chelsea", color: { hex: "#8a6342", sole: "#1a1512" } },
+  ];
+  return `
+  <div class="grid grid--preview" role="img" aria-label="Sample pictures. Real products will appear here soon.">
+    ${samples
+      .map(
+        (s) => `<article class="card card--preview" aria-hidden="true">
+          <div class="card__media"><div class="media media--art">${illustration(s.style, s.color, { label: "" })}</div><span class="card__badge">Sample picture</span></div>
+          <div class="card__body"><p class="card__cat">Coming soon</p></div>
+        </article>`,
+      )
+      .join("")}
+  </div>`;
 }

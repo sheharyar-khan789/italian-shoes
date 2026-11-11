@@ -62,9 +62,19 @@
   opacity: 1;
   transform: none;
 }
-/* The story block has no picture of its own, so keep it a readable single column. */
-.story {
-  grid-template-columns: minmax(0, 760px);
+/* Sample pictures shown only while the store has no real products. */
+.grid--preview {
+  opacity: 0.9;
+  margin-bottom: 32px;
+}
+.card--preview .card__media {
+  cursor: default;
+}
+.card--preview .card__badge {
+  border-color: rgba(217, 190, 130, 0.5);
+}
+.card--preview .card__cat {
+  margin: 0;
 }
 
 /* ── Glass header with a lit lower edge ── */

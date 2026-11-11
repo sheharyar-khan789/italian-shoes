@@ -4,7 +4,7 @@ import { loadBanners } from "../data/store.js";
 import { queryProducts } from "../lib/shop.js";
 import { esc } from "../lib/format.js";
 import { illustration } from "../ui/illustration.js";
-import { grid, bindCardSwatches, catalogGate } from "../ui/components.js";
+import { grid, bindCardSwatches, catalogGate, previewGrid } from "../ui/components.js";
 
 const CATEGORY_ART = {
   sneakers: { style: "sneaker", color: { hex: "#c99389", sole: "#ece6dc" } },
@@ -49,7 +49,7 @@ export default async function home(ctx) {
   }
   ${
     !products.length
-      ? `<section class="section"><div class="empty"><p class="empty__title">Our collection is being prepared.</p><p class="empty__text">Please check back soon${s.phone ? ` or call us on ${esc(s.phone)}` : ""}.</p></div></section>`
+      ? `<section class="section"><header class="section__head"><p class="kicker"><span class="kicker__line"></span>The Collection</p><h2 class="section__title">Our collection is <em>on its way.</em></h2></header>${previewGrid()}<div class="empty"><p class="empty__title">Real products are being added.</p><p class="empty__text">Please check back soon${s.phone ? ` or call us on ${esc(s.phone)}` : ""}.</p></div></section>`
       : ""
   }
   ${layout?.introTitle ? `<section class="section"><h2 class="section__title">${esc(layout.introTitle)}</h2>${layout.introText ? `<p class="page-lede">${esc(layout.introText)}</p>` : ""}</section>` : ""}
@@ -103,6 +103,9 @@ export default async function home(ctx) {
   }
 
   <section class="section story" aria-labelledby="story-title">
+    <div class="story__mark" aria-hidden="true">
+      ${illustration("wholecut", { hex: "#4e2e1c", sole: "#16120f" })}
+    </div>
     <div class="story__text">
       <p class="kicker"><span class="kicker__line"></span>The Store</p>
       <h2 class="section__title" id="story-title">${esc(s.storeName || "Our store")}${city ? `, <em>${esc(city)}.</em>` : ""}</h2>
