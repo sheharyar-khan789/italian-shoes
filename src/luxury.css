@@ -50,19 +50,21 @@
 }
 
 /* ── Reveal on scroll ── */
+/* Light and quick: no blur (heavy on weak devices), short fade, revealed just before it scrolls into view. */
 .lux-reveal {
   opacity: 0;
-  transform: translate3d(0, 34px, 0);
-  filter: blur(6px);
+  transform: translate3d(0, 18px, 0);
   transition:
-    opacity 1s var(--ease-out) var(--d, 0ms),
-    transform 1.1s var(--ease-out) var(--d, 0ms),
-    filter 1s var(--ease-out) var(--d, 0ms);
+    opacity 0.55s ease-out var(--d, 0ms),
+    transform 0.6s var(--ease-out) var(--d, 0ms);
 }
 .lux-reveal.is-in {
   opacity: 1;
   transform: none;
-  filter: none;
+}
+/* The story block has no picture of its own, so keep it a readable single column. */
+.story {
+  grid-template-columns: minmax(0, 760px);
 }
 
 /* ── Glass header with a lit lower edge ── */

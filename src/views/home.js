@@ -103,9 +103,6 @@ export default async function home(ctx) {
   }
 
   <section class="section story" aria-labelledby="story-title">
-    <div class="story__mark" aria-hidden="true">
-      ${illustration("wholecut", { hex: "#4e2e1c", sole: "#16120f" })}
-    </div>
     <div class="story__text">
       <p class="kicker"><span class="kicker__line"></span>The Store</p>
       <h2 class="section__title" id="story-title">${esc(s.storeName || "Our store")}${city ? `, <em>${esc(city)}.</em>` : ""}</h2>

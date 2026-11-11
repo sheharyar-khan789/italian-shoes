@@ -6,6 +6,8 @@ const routes = [];
 const outlet = document.getElementById("main");
 let cleanup = null;
 let first = true;
+/** The container the CURRENT page draws into; a slower earlier page keeps writing into its own, detached one. */
+let currentPage = null;
 const listeners = new Set();
 
 history.scrollRestoration = "manual";
@@ -42,8 +44,18 @@ async function render({ restore }) {
   document.querySelectorAll("dialog[open]").forEach((d) => /** @type {HTMLDialogElement} */ (d).close());
 
   document.body.dataset.route = r.name;
-  outlet.replaceChildren();
-  cleanup = await r.view({ outlet, params: m.slice(1).map((p) => p && decodeURIComponent(p)), query: url.searchParams });
+  // Each page gets its own container. On a slow connection a page can finish loading AFTER the visitor has moved
+  // on (e.g. FAQ answers arriving while the size guide is open); it then writes into a container nobody sees.
+  const page = document.createElement("div");
+  page.style.display = "contents";
+  currentPage = page;
+  outlet.replaceChildren(page);
+  const result = await r.view({ outlet: page, params: m.slice(1).map((p) => p && decodeURIComponent(p)), query: url.searchParams });
+  if (currentPage !== page) {
+    if (typeof result === "function") result(); // superseded: undo its listeners, change nothing else
+    return;
+  }
+  cleanup = result;
 
   listeners.forEach((fn) => fn(r.name, url));
 
