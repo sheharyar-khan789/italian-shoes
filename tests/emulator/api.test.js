@@ -90,3 +90,17 @@ test("the public catalog is cached, lists only published products, and has plain
   assert.equal(JSON.parse(JSON.stringify(res.body)).categories[0].slug, "formal");
   assert.equal((await call("catalog", { method: "POST" })).status, 405);
 });
+
+test("the public catalog says whether delivery is set up (yes/no only, no shipping data)", async () => {
+  assert.equal((await call("catalog", { method: "GET", body: undefined })).body.deliveryReady, false, "nothing configured yet");
+  await db.doc("shippingMethods/m1").set({ name: "Standard", isActive: true });
+  assert.equal((await call("catalog", { method: "GET", body: undefined })).body.deliveryReady, false, "a method without a rate isn't enough");
+  await db.doc("shippingRates/m1__*").set({ methodId: "m1", city: "*", charge: 100 });
+  const res = await call("catalog", { method: "GET", body: undefined });
+  assert.equal(res.body.deliveryReady, true);
+  assert.equal(JSON.stringify(res.body).includes("charge"), false, "no rates leak into the public response");
+  await db.doc("shippingMethods/m1").update({ isActive: false });
+  assert.equal((await call("catalog", { method: "GET", body: undefined })).body.deliveryReady, false, "an inactive method doesn't count");
+  await db.doc("shippingMethods/m1").delete();
+  await db.doc("shippingRates/m1__*").delete();
+});

@@ -404,3 +404,237 @@ test("wishlist: only the account holder reads, adds or removes their own entries
   await assertFails(setDoc(doc(alice(), "users/alice/wishlist/p3"), { productId: "p3", createdAt: serverTimestamp(), extra: 1 }));
   await assertSucceeds(deleteDoc(doc(alice(), "users/alice/wishlist/p1")));
 });
+
+/* ───────── Warehouses, transfers, snapshot, order stock allocations ───────── */
+
+test("warehouses and transfers: readable by stock staff only; nobody can write from the browser", async () => {
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    const db = ctx.firestore();
+    await setDoc(doc(db, "warehouses/main"), { name: "Main warehouse", code: "MAIN" });
+    await setDoc(doc(db, "stockTransfers/t1"), { number: "TR-000001", status: "draft" });
+    await setDoc(doc(db, "catalogSnapshot/meta"), { version: "v1" });
+    await setDoc(doc(db, "orders/oa"), { userId: "alice", grandTotal: 1 });
+    await setDoc(doc(db, "orders/oa/stock/allocations"), { lines: [] });
+  });
+  const stock = env.authenticatedContext("stock-1", { email: "s@shop.pk", staff: true, perms: ["inventory.read", "warehouses.manage", "transfers.manage"] }).firestore();
+  const orders = env.authenticatedContext("ord-1", { email: "o@shop.pk", staff: true, perms: ["orders.read"] }).firestore();
+  for (const path of ["warehouses/main", "stockTransfers/t1"]) {
+    await assertSucceeds(getDoc(doc(stock, path)));
+    await assertFails(getDoc(doc(alice(), path)), `customer reading ${path}`);
+    await assertFails(getDoc(doc(visitor(), path)), `visitor reading ${path}`);
+    await assertFails(getDoc(doc(forged(), path)), `forged staff flag reading ${path}`);
+    await assertFails(setDoc(doc(stock, path), { name: "x" }), `even stock staff can't write ${path} from the browser`);
+    await assertFails(deleteDoc(doc(stock, path)));
+  }
+  await assertFails(getDoc(doc(stock, "catalogSnapshot/meta")), "the snapshot is server-only");
+  await assertFails(getDoc(doc(owner(), "catalogSnapshot/meta")));
+  await assertFails(setDoc(doc(stock, "catalogSnapshot/meta"), { version: "x" }));
+  await assertSucceeds(getDoc(doc(orders, "orders/oa/stock/allocations")));
+  await assertFails(getDoc(doc(alice(), "orders/oa/stock/allocations")), "warehouse details are not shown to the customer, even on their own order");
+  await assertFails(setDoc(doc(orders, "orders/oa/stock/allocations"), { lines: [] }));
+});
+
+/* ───────── Suppliers and purchasing ───────── */
+
+test("purchasing records: readable with purchases.read only; cost history needs costs.read; nobody writes from the browser", async () => {
+  const paths = ["suppliers/s1", "supplierLedger/l1", "purchaseOrders/po1", "goodsReceipts/g1", "supplierPayments/p1", "purchaseReturns/r1"];
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    const db = ctx.firestore();
+    for (const path of paths) await setDoc(doc(db, path), { supplierId: "s1", name: "x" });
+    await setDoc(doc(db, "variantCostHistory/h1"), { productId: "p", unitCost: 100 });
+  });
+  const buyer = env.authenticatedContext("buyer-1", { email: "b@shop.pk", staff: true, perms: ["purchases.read", "purchases.manage", "suppliers.manage", "suppliers.pay"] }).firestore();
+  const costs = env.authenticatedContext("costs-1", { email: "c@shop.pk", staff: true, perms: ["costs.read"] }).firestore();
+  const stock = env.authenticatedContext("stock-2", { email: "s@shop.pk", staff: true, perms: ["inventory.read", "inventory.adjust"] }).firestore();
+  for (const path of paths) {
+    await assertSucceeds(getDoc(doc(buyer, path)));
+    await assertFails(getDoc(doc(alice(), path)), `customer reading ${path}`);
+    await assertFails(getDoc(doc(visitor(), path)), `visitor reading ${path}`);
+    await assertFails(getDoc(doc(forged(), path)), `forged staff flag reading ${path}`);
+    await assertFails(getDoc(doc(stock, path)), `stock staff reading ${path}`);
+    await assertFails(setDoc(doc(buyer, path), { name: "y" }), `${path} can't be written from the browser`);
+    await assertFails(updateDoc(doc(buyer, path), { name: "y" }));
+    await assertFails(deleteDoc(doc(buyer, path)));
+  }
+  await assertSucceeds(getDoc(doc(costs, "variantCostHistory/h1")));
+  await assertFails(getDoc(doc(buyer, "variantCostHistory/h1")), "purchases.read alone doesn't reveal cost history");
+  await assertFails(setDoc(doc(costs, "variantCostHistory/h1"), { unitCost: 1 }));
+});
+
+/* ───────── Unified sales ───────── */
+
+test("sales: readable with sales.read; the cost snapshot needs costs.read; customers, other staff and visitors get nothing; nobody writes", async () => {
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    const db = ctx.firestore();
+    await setDoc(doc(db, "orders/os1"), { userId: "alice", grandTotal: 100, saleId: "os1" });
+    await setDoc(doc(db, "sales/os1"), { number: "SL-000001", customerId: "alice", orderId: "os1", total: 100 });
+    await setDoc(doc(db, "saleCosts/os1"), { saleId: "os1", costTotal: 40, grossProfit: 60 });
+  });
+  const viewer = env.authenticatedContext("sale-v", { email: "v@shop.pk", staff: true, perms: ["sales.read"] }).firestore();
+  const finance = env.authenticatedContext("sale-f", { email: "f@shop.pk", staff: true, perms: ["sales.read", "costs.read"] }).firestore();
+  const ordersOnly = env.authenticatedContext("sale-o", { email: "o@shop.pk", staff: true, perms: ["orders.read", "payments.update"] }).firestore();
+  await assertSucceeds(getDoc(doc(viewer, "sales/os1")));
+  await assertSucceeds(getDoc(doc(finance, "sales/os1")));
+  await assertFails(getDoc(doc(ordersOnly, "sales/os1")), "orders.read isn't sales.read");
+  await assertFails(getDoc(doc(alice(), "sales/os1")), "not even the customer whose order it is");
+  await assertFails(getDoc(doc(visitor(), "sales/os1")));
+  await assertFails(getDoc(doc(forged(), "sales/os1")));
+  await assertSucceeds(getDoc(doc(finance, "saleCosts/os1")));
+  await assertFails(getDoc(doc(viewer, "saleCosts/os1")), "sales.read alone doesn't reveal cost or profit");
+  await assertFails(getDoc(doc(alice(), "saleCosts/os1")));
+  for (const [ctx, path] of [[viewer, "sales/os1"], [finance, "sales/os1"], [finance, "saleCosts/os1"], [alice(), "sales/new"]]) {
+    await assertFails(setDoc(doc(ctx, path), { total: 1 }), `no browser can write ${path}`);
+    await assertFails(updateDoc(doc(ctx, path), { total: 1 }));
+    await assertFails(deleteDoc(doc(ctx, path)));
+  }
+  await assertSucceeds(getDoc(doc(alice(), "orders/os1")), "customers still read their own order");
+});
+
+/* ───────── Accounting ───────── */
+
+test("accounting records: readable with accounting.read only; no browser can write an account, a journal or a ledger line, even with every accounting permission", async () => {
+  const paths = ["accountingConfig/main", "accounts/1010", "journalEntries/j1", "ledgerEntries/j1_0", "accountMonths/2026-01", "accountDays/2026-01-02", "partyBalances/customer__c1", "accountingExceptions/e1"];
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    const db = ctx.firestore();
+    for (const path of paths) await setDoc(doc(db, path), { status: "posted", total: 1 });
+  });
+  const reader = env.authenticatedContext("acc-r", { email: "r@shop.pk", staff: true, perms: ["accounting.read"] }).firestore();
+  const everything = env.authenticatedContext("acc-all", { email: "a@shop.pk", staff: true, perms: ["accounting.read", "accounting.manage", "accounting.post", "accounting.reverse"] }).firestore();
+  const noRead = env.authenticatedContext("acc-n", { email: "n@shop.pk", staff: true, perms: ["accounting.manage", "accounting.post", "sales.read", "purchases.read", "costs.read", "orders.read"] }).firestore();
+  for (const path of paths) {
+    await assertSucceeds(getDoc(doc(reader, path)));
+    await assertSucceeds(getDoc(doc(everything, path)));
+    await assertFails(getDoc(doc(noRead, path)), `other permissions don't open ${path}`);
+    await assertFails(getDoc(doc(alice(), path)), `customer reading ${path}`);
+    await assertFails(getDoc(doc(visitor(), path)));
+    await assertFails(getDoc(doc(forged(), path)));
+    await assertFails(setDoc(doc(everything, path), { total: 2 }), `${path} can't be written from a browser`);
+    await assertFails(updateDoc(doc(everything, path), { total: 2 }));
+    await assertFails(deleteDoc(doc(everything, path)));
+  }
+  await assertFails(setDoc(doc(everything, "journalEntries/new"), { status: "posted" }), "no browser can create a journal");
+});
+
+/* ───────── Point of sale ───────── */
+
+test("POS registers: readable with pos.sessions.read only; no browser writes a session, a movement or a lock; locks are never readable", async () => {
+  const paths = ["registerSessions/s1", "registerMovements/m1", "registerLocks/u1"];
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    for (const path of paths) await setDoc(doc(ctx.firestore(), path), { status: "open", total: 1 });
+  });
+  const reader = env.authenticatedContext("pos-r", { email: "r@shop.pk", staff: true, perms: ["pos.sessions.read"] }).firestore();
+  const all = env.authenticatedContext("pos-a", { email: "a@shop.pk", staff: true, perms: ["pos.access", "pos.sell", "pos.register", "pos.cash", "pos.override", "pos.sessions.read", "pos.reports"] }).firestore();
+  const cashier = env.authenticatedContext("pos-c", { email: "c@shop.pk", staff: true, perms: ["pos.access", "pos.sell", "pos.register"] }).firestore();
+  for (const path of paths.slice(0, 2)) {
+    await assertSucceeds(getDoc(doc(reader, path)));
+    await assertSucceeds(getDoc(doc(all, path)));
+    await assertFails(getDoc(doc(cashier, path)), `a cashier can't read ${path} directly`);
+    await assertFails(getDoc(doc(alice(), path)));
+    await assertFails(getDoc(doc(visitor(), path)));
+    await assertFails(getDoc(doc(forged(), path)));
+    await assertFails(setDoc(doc(all, path), { status: "closed" }));
+    await assertFails(updateDoc(doc(all, path), { status: "closed" }));
+    await assertFails(deleteDoc(doc(all, path)));
+  }
+  for (const ctx of [reader, all, cashier, alice(), visitor()]) {
+    await assertFails(getDoc(doc(ctx, "registerLocks/u1")));
+    await assertFails(setDoc(doc(ctx, "registerLocks/u2"), { sessionId: "s1" }));
+    await assertFails(deleteDoc(doc(ctx, "registerLocks/u1")));
+  }
+});
+
+/* ───────── Income, expenses and cash ───────── */
+
+test("finance records: readable with finance.read only; no browser can write an entry, a category, a recurring expense or a cash count", async () => {
+  const paths = ["financeEntries/e1", "financeCategories/c1", "recurringExpenses/r1", "cashCounts/k1"];
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    for (const path of paths) await setDoc(doc(ctx.firestore(), path), { status: "posted", amount: 1 });
+  });
+  const reader = env.authenticatedContext("fin-r", { email: "r@shop.pk", staff: true, perms: ["finance.read"] }).firestore();
+  const everything = env.authenticatedContext("fin-a", { email: "a@shop.pk", staff: true, perms: ["finance.read", "finance.write", "finance.void", "finance.approve", "finance.adjust", "finance.manage"] }).firestore();
+  const noRead = env.authenticatedContext("fin-n", { email: "n@shop.pk", staff: true, perms: ["accounting.read", "sales.read", "pos.sessions.read"] }).firestore();
+  for (const path of paths) {
+    await assertSucceeds(getDoc(doc(reader, path)));
+    await assertSucceeds(getDoc(doc(everything, path)));
+    await assertFails(getDoc(doc(noRead, path)), `other permissions don't open ${path}`);
+    await assertFails(getDoc(doc(alice(), path)));
+    await assertFails(getDoc(doc(visitor(), path)));
+    await assertFails(getDoc(doc(forged(), path)));
+    await assertFails(setDoc(doc(everything, path), { amount: 2 }), `${path} can't be written from a browser`);
+    await assertFails(updateDoc(doc(everything, path), { amount: 2 }));
+    await assertFails(deleteDoc(doc(everything, path)));
+  }
+  await assertFails(setDoc(doc(everything, "financeEntries/new"), { status: "posted" }));
+});
+
+/* ───────── CRM, loyalty and customer discounts ───────── */
+
+test("CRM records: readable with crm.read only; no browser can write one; the duplicate-check registry is never readable", async () => {
+  const paths = ["crmCustomers/c1", "crmNotes/n1", "crmSettings/main", "crmDiscounts/d1", "crmDiscountUses/u1", "loyaltyAccounts/c1", "loyaltyLots/l1", "loyaltyTransactions/t1"];
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    for (const path of paths) await setDoc(doc(ctx.firestore(), path), { customerId: "c1", points: 1 });
+    await setDoc(doc(ctx.firestore(), "crmKeys/phone_923001234567"), { customerId: "c1" });
+  });
+  const reader = env.authenticatedContext("crm-r", { email: "r@shop.pk", staff: true, perms: ["crm.read"] }).firestore();
+  const everything = env.authenticatedContext("crm-a", { email: "a@shop.pk", staff: true, perms: ["crm.read", "crm.write", "crm.manage", "crm.loyalty"] }).firestore();
+  const noRead = env.authenticatedContext("crm-n", { email: "n@shop.pk", staff: true, perms: ["sales.read", "finance.read", "pos.sessions.read"] }).firestore();
+  for (const path of paths) {
+    await assertSucceeds(getDoc(doc(reader, path)));
+    await assertFails(getDoc(doc(noRead, path)), `other permissions don't open ${path}`);
+    await assertFails(getDoc(doc(alice(), path)), `a customer can't read ${path}`);
+    await assertFails(getDoc(doc(visitor(), path)));
+    await assertFails(getDoc(doc(forged(), path)));
+    await assertFails(setDoc(doc(everything, path), { points: 2 }), `${path} can't be written from a browser`);
+    await assertFails(updateDoc(doc(everything, path), { points: 2 }));
+    await assertFails(deleteDoc(doc(everything, path)));
+  }
+  await assertFails(getDoc(doc(everything, "crmKeys/phone_923001234567")), "the registry is server-only");
+  await assertFails(setDoc(doc(everything, "crmKeys/phone_923009999999"), { customerId: "x" }));
+  await assertFails(setDoc(doc(everything, "crmCustomers/new"), { name: "x" }));
+});
+
+/* ───────── Analytics ───────── */
+
+test("analytics collections (cache, saved reports, schedules, generated summaries) can't be read or written from any browser, whatever the permissions", async () => {
+  const paths = ["analyticsCache/c1", "reportConfigs/r1", "reportSchedules/s1", "reportRuns/u1"];
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    for (const path of paths) await setDoc(doc(ctx.firestore(), path), { recipientUids: ["x"], payload: "{}" });
+  });
+  const owner = env.authenticatedContext("an-o", { email: "o@shop.pk", staff: true, perms: ["analytics.read", "analytics.financial", "analytics.executive", "analytics.export", "analytics.manage", "accounting.read", "sales.read"] }).firestore();
+  for (const path of paths) {
+    await assertFails(getDoc(doc(owner, path)), `${path} is server-only`);
+    await assertFails(getDoc(doc(alice(), path)));
+    await assertFails(getDoc(doc(visitor(), path)));
+    await assertFails(setDoc(doc(owner, path), { payload: "{}" }));
+    await assertFails(updateDoc(doc(owner, path), { payload: "x" }));
+    await assertFails(deleteDoc(doc(owner, path)));
+  }
+});
+
+/* ───────── HR ───────── */
+
+test("HR collections (employees, pay, attendance, leave, payroll, advances) can't be read or written from any browser, whatever the permissions", async () => {
+  const paths = ["employees/e1", "employeeSecure/e1", "employeeDocs/d1", "employeeHistory/h1", "employeeLinks/u1", "employeeKeys/cnic_1", "hrSettings/main", "shifts/s1", "holidays/2026-11-17", "attendance/e1__2026-11-17", "leaveRequests/l1", "leaveBalances/e1__2026", "payrollRuns/2026-11", "payslips/2026-11__e1", "payrollAdjustments/a1", "employeeAdvances/v1", "commissionRules/c1"];
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    for (const path of paths) await setDoc(doc(ctx.firestore(), path), { name: "x", basicSalary: 1 });
+  });
+  const everything = env.authenticatedContext("hr-all", { email: "o@shop.pk", staff: true, perms: ["hr.read", "hr.write", "hr.sensitive", "hr.salary.read", "hr.salary.write", "hr.attendance", "hr.leave.manage", "hr.payroll.generate", "hr.payroll.approve", "hr.payroll.pay", "hr.advances.manage", "hr.manage", "hr.export", "hr.self"] }).firestore();
+  for (const path of paths) {
+    await assertFails(getDoc(doc(everything, path)), `${path} is server-only`);
+    await assertFails(getDoc(doc(alice(), path)));
+    await assertFails(getDoc(doc(visitor(), path)));
+    await assertFails(getDoc(doc(forged(), path)));
+    await assertFails(setDoc(doc(everything, path), { name: "y" }));
+    await assertFails(updateDoc(doc(everything, path), { basicSalary: 2 }));
+    await assertFails(deleteDoc(doc(everything, path)));
+  }
+});
+
+test("the Owner's wildcard permission claim passes every permission check in the rules; a plain list still opens only its own permissions", async () => {
+  await env.withSecurityRulesDisabled(async (ctx) => setDoc(doc(ctx.firestore(), "crmCustomers/wild"), { name: "x" }));
+  const owner = env.authenticatedContext("wild-o", { email: "o@shop.pk", staff: true, perms: ["*"] }).firestore();
+  const some = env.authenticatedContext("wild-s", { email: "s@shop.pk", staff: true, perms: ["orders.read"] }).firestore();
+  await assertSucceeds(getDoc(doc(owner, "crmCustomers/wild")));
+  await assertFails(getDoc(doc(some, "crmCustomers/wild")));
+  await assertFails(getDoc(doc(env.authenticatedContext("wild-n", { email: "n@shop.pk", staff: false, perms: ["*"] }).firestore(), "crmCustomers/wild")), "a wildcard without staff access opens nothing");
+});

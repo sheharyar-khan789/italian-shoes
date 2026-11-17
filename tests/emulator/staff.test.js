@@ -47,7 +47,12 @@ test("the configured, verified owner email can claim once; nobody can claim afte
   const claims = (await auth.getUser(owner.uid)).customClaims;
   assert.equal(claims.staff, true);
   assert.deepEqual(claims.roles, ["owner"]);
-  assert.ok(claims.perms.includes("staff.manage") && claims.perms.includes("settings.manage"));
+  // The Owner holds every permission; the list no longer fits the 1,000-character claim limit, so the claim is the single wildcard "*".
+  assert.deepEqual(claims.perms, ["*"]);
+  assert.ok(JSON.stringify(claims).length < 200, "far below the Firebase limit");
+  const { expandClaimPerms, ALL_PERMISSIONS } = await import("../../functions/shared/permissions.js");
+  assert.deepEqual(expandClaimPerms(claims.perms), ALL_PERMISSIONS);
+  assert.ok(expandClaimPerms(claims.perms).includes("staff.manage") && expandClaimPerms(claims.perms).includes("hr.payroll.approve"));
 
   const record = (await db.doc(`staff/${owner.uid}`).get()).data();
   assert.equal(record.status, "active");

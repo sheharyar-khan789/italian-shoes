@@ -159,4 +159,12 @@ test("inventory report lists out-of-stock and low-stock using the owner's thresh
   assert.equal(r.threshold, 3);
   assert.ok(r.lowStock.some((x) => x.productId === low.productId));
   assert.ok(r.outOfStock.some((x) => x.productId === out.productId));
+  // Rows carry the product NAME and the colour/size label, not just ids.
+  const row = r.outOfStock.find((x) => x.productId === out.productId);
+  const productName = (await db.doc(`products/${out.productId}`).get()).data().name;
+  assert.equal(row.productName, productName);
+  assert.notEqual(row.productName, out.productId);
+  assert.match(row.variantLabel, /\S+ \/ \S+/);
+  assert.equal(r.outOfStockCount, r.outOfStock.length);
+  assert.equal(r.lowStockCount, r.lowStock.length);
 });
