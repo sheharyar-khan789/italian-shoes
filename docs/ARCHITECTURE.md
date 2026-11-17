@@ -7,7 +7,7 @@ Italian Shoes e-commerce platform. Vite + vanilla JavaScript in the browser, Fir
 > shell (4), the catalogue and stock (5), and orders (6): server-side order placement, status
 > management, tracking, invoices, CSV export and customer order history. The storefront's own
 > cart and checkout screens still run on the demo catalogue until Phase 9, when they are rewired
-> to `quoteCheckout` / `placeOrder`. Items marked *(planned)* do not
+> to `quoteCheckout` / `placeOrder`. **Update:** the items below marked *(planned)* were built in later phases (231+ endpoints, 49+ services, Vercel serverless instead of Cloud Functions); this overview is the original design, see `docs/OPERATIONS.md` for the current deployment. Items marked *(planned)* do not
 > exist yet; see `docs/PHASE-1-AUDIT-AND-PLAN.md` for when each arrives.
 
 ---
@@ -61,7 +61,7 @@ Italian Shoes e-commerce platform. Vite + vanilla JavaScript in the browser, Fir
 | `vite.config.js` | Production build settings; `npm run preview` serves the build with the real security headers. |
 | `SECURITY.md` | Everything security-related, including the owner's console checklist. |
 | `firebase.json`, `.firebaserc` | Hosting, functions, rules, emulator configuration; default project `italianshoes`. |
-| `firestore.rules`, `storage.rules` | Security rules. Deny by default. |
+| `firestore.rules` | Security rules. Deny by default; every write goes through the server. (There is no `storage.rules`: files live in Vercel Blob, see `docs/OPERATIONS.md`.) |
 | `firestore.indexes.json` | Composite indexes, added with each feature that needs one. |
 | `tests/unit/` | Fast tests with no emulator (`npm test`). |
 | `tests/emulator/` | Security-rules and Cloud Functions tests against the emulators (`npm run test:emulator`). |

@@ -1,4 +1,6 @@
-# Go-live checklist (Phase 10)
+# Go-live checklist (Phase 10 — superseded)
+
+> **Superseded.** Use `docs/OPERATIONS.md` (deployment order, rollback, backups, monitoring) and `PRODUCTION_CERTIFICATION.md` (what is verified and what blocks go-live). This file is kept only as history of the Phase 10 state.
 
 Nothing here has been done to the live project yet. Deploying, enabling billing and pushing code each need the owner's explicit say-so.
 
