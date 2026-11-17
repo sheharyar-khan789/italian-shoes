@@ -3,8 +3,8 @@
  * An endpoint is defined with secureCallable(); runEndpoint() then applies, in order:
  *
  *   1. Auth          — the Firebase ID token in "Authorization: Bearer <token>" is VERIFIED by the Admin SDK
- *   2. Permission    — `permission: "orders.update"` checks the staff custom claims inside that token,
- *                      and (for staff) that the account is still enabled and not revoked
+ *   2. Permission    — `permission: "orders.update"` checks the staff custom claims inside that token.
+ *                      Any request with staff claims also checks, live, that the account is still enabled and not revoked
  *   3. Rate limit    — per user (or per IP when signed out), stored in Firestore
  *   4. Validation    — the shared Zod schema; only cleaned data reaches the handler
  *   5. Safe errors   — internal errors never reach the browser (see errors.js)
@@ -17,6 +17,7 @@
 import { AppError, toApiError } from "./errors.js";
 import { auth as adminAuth } from "./admin.js";
 import { parse } from "./validate.js";
+import { expandClaimPerms } from "../shared/permissions.js";
 import { consumeRateLimit, callerIp } from "./rateLimit.js";
 
 /** Default limit when an endpoint doesn't set its own: 60 calls per minute per caller. */
@@ -63,6 +64,8 @@ export async function runEndpoint(endpoint, req, { verifyToken = defaultVerify }
     if (bearer) {
       try {
         token = await verifyToken(bearer);
+        // The Owner's claim is "*": from here on every handler sees the real list.
+        if (token && Array.isArray(token.perms)) token = { ...token, perms: expandClaimPerms(token.perms) };
       } catch {
         throw new AppError("unauthenticated", "Your session has expired. Please sign in again.");
       }
@@ -72,8 +75,10 @@ export async function runEndpoint(endpoint, req, { verifyToken = defaultVerify }
     if (options.auth === "required" && !uid) throw new AppError("unauthenticated", "Please sign in to continue.");
     if (options.permission) {
       if (!hasPermission(token, options.permission)) throw new AppError("permission-denied", "You don't have permission to do this.");
-      await assertSessionStillValid(/** @type {string} */ (uid), /** @type {Record<string, any>} */ (token));
     }
+    // Every request that carries staff access is checked live — including endpoints that decide their permission
+    // inside the handler (reports, HR self-service, ...): a disabled account or revoked session must not keep working.
+    if (uid && token?.staff === true) await assertSessionStillValid(uid, token);
     if (options.rateLimit) await consumeRateLimit(name, uid ?? `ip:${callerIp({ headers: req.headers })}`, options.rateLimit);
 
     // The browser sends { data: ... }; anything else is treated as no data.
@@ -91,7 +96,7 @@ export async function runEndpoint(endpoint, req, { verifyToken = defaultVerify }
  * @param {string} permission
  */
 export function hasPermission(token, permission) {
-  return Boolean(token && token.staff === true && Array.isArray(token.perms) && token.perms.includes(permission));
+  return Boolean(token && token.staff === true && expandClaimPerms(token.perms).includes(permission));
 }
 
 /**
@@ -102,7 +107,10 @@ export function hasPermission(token, permission) {
  * @param {Record<string, any>} token
  */
 export async function assertSessionStillValid(uid, token) {
-  const user = await adminAuth.getUser(uid);
+  const user = await adminAuth.getUser(uid).catch((e) => {
+    if (e?.code === "auth/user-not-found") throw new AppError("unauthenticated", "Your session has ended. Please sign in again.");
+    throw e;
+  });
   if (user.disabled) throw new AppError("permission-denied", "This account has been disabled.");
   const validAfter = user.tokensValidAfterTime ? Date.parse(user.tokensValidAfterTime) / 1000 : 0;
   if (Number(token.auth_time) < validAfter) throw new AppError("unauthenticated", "Your session has ended. Please sign in again.");

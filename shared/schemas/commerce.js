@@ -98,7 +98,6 @@ export const publicSettingsSchema = z.object({
   announcement: optionalText(140),
   currency: z.literal("PKR").default("PKR"),
   isOpen: z.boolean().default(true),
-  registrationOpen: z.boolean().default(true),
   seoTitle: optionalText(70),
   seoDescription: optionalText(160),
 });
@@ -118,3 +117,7 @@ export const privateSettingsSchema = z.object({
 });
 
 export const saveSettingsSchema = z.object({ public: publicSettingsSchema, private: privateSettingsSchema });
+
+/** The store logo: the address of a picture just uploaded to our own Blob store (checked again on the server). */
+export const setStoreLogoInput = z.object({ url: z.string().url().max(500) });
+export const emptyObjectInput = z.object({});

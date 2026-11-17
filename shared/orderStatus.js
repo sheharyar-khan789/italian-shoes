@@ -41,6 +41,7 @@ export const customerCanCancel = (status) => status === "pending";
 
 export const PAYMENT_STATUSES = /** @type {const} */ ([
   "pending", // COD: not yet collected. Online: awaiting gateway confirmation.
+  "partially_paid", // some money recorded, the rest still due (several payments can be recorded)
   "collected", // COD cash received by the store
   "paid", // online payment verified server-side with the gateway
   "failed",
@@ -51,7 +52,8 @@ export const PAYMENT_STATUSES = /** @type {const} */ ([
 
 /** @type {Record<string, string[]>} */
 export const PAYMENT_TRANSITIONS = {
-  pending: ["collected", "paid", "failed", "void"],
+  pending: ["partially_paid", "collected", "paid", "failed", "void"],
+  partially_paid: ["partially_paid", "pending", "collected", "partially_refunded", "refunded"],
   collected: ["partially_refunded", "refunded"],
   paid: ["partially_refunded", "refunded"],
   failed: ["pending"],

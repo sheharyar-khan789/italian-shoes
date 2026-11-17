@@ -9,7 +9,7 @@ import { db, auth, FieldValue } from "../lib/admin.js";
 import { AppError } from "../lib/errors.js";
 import { writeAudit } from "../lib/audit.js";
 import { notify } from "../lib/notify.js";
-import { effectivePermissions } from "../shared/permissions.js";
+import { effectivePermissions, claimPerms, DEFAULT_ROLES, PERMISSIONS_ADDED_LATER } from "../shared/permissions.js";
 
 const STAFF_CLAIMS = ["staff", "roles", "perms"];
 
@@ -17,7 +17,15 @@ const STAFF_CLAIMS = ["staff", "roles", "perms"];
 export async function loadRoles() {
   const snap = await db.collection("roles").get();
   if (snap.empty) throw new AppError("failed-precondition", "Staff roles are not set up yet. Run the database migrations first.");
-  return Object.fromEntries(snap.docs.map((d) => [d.id, /** @type {{permissions: string[]}} */ (d.data())]));
+  const roles = Object.fromEntries(snap.docs.map((d) => [d.id, /** @type {{permissions: string[]}} */ (d.data())]));
+  // System roles saved before a permission existed get the new ones they hold by default (additive only).
+  for (const [key, def] of Object.entries(DEFAULT_ROLES)) {
+    const saved = roles[key];
+    if (!saved) continue;
+    const extra = PERMISSIONS_ADDED_LATER.filter((p) => def.permissions.includes(p) && !(saved.permissions ?? []).includes(p));
+    if (extra.length) roles[key] = { ...saved, permissions: [...(saved.permissions ?? []), ...extra] };
+  }
+  return roles;
 }
 
 /** @param {{ uid?: string, email?: string }} who */
@@ -95,7 +103,9 @@ export async function setStaffRoles({ uid, email, roles, actorUid }) {
 
   // Claims: keep any unrelated claims, replace the staff ones.
   const others = Object.fromEntries(Object.entries(user.customClaims ?? {}).filter(([k]) => !STAFF_CLAIMS.includes(k)));
-  await auth.setCustomUserClaims(user.uid, uniqueRoles.length ? { ...others, staff: true, roles: uniqueRoles, perms } : others);
+  const claims = uniqueRoles.length ? { ...others, staff: true, roles: uniqueRoles, perms: claimPerms(perms) } : others;
+  if (JSON.stringify(claims).length > 950) throw new AppError("failed-precondition", "That combination of roles carries too many permissions to fit in a sign-in token. Remove a role or use fewer roles for this person.");
+  await auth.setCustomUserClaims(user.uid, claims);
 
   const lostPermission = effectivePermissions(previous, allRoles).some((p) => !perms.includes(p));
   if (lostPermission) await auth.revokeRefreshTokens(user.uid);

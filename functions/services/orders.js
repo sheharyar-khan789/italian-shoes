@@ -16,10 +16,14 @@ import { notify } from "../lib/notify.js";
 import { toCsv } from "../lib/csv.js";
 import { lineTotal, sumPaisa, percentOf } from "../shared/money.js";
 import { canTransition, customerCanCancel, RESTOCK_ON_ENTER } from "../shared/orderStatus.js";
-import { effectivePrice, recomputeSummary } from "./products.js";
-import { readStock, writeStockChange, availableOf } from "./inventory.js";
+import { effectivePrice, inventoryId } from "./products.js";
+import { readAccounting, postInTx, finishAccounting, reverseInTx } from "./accounting.js";
+import { saleSpec } from "./accountingRules.js";
+import { pktDateKey } from "../shared/accounting.js";
+import { saleFromOrder, createSale, nextSaleNumber, salesCounter, saleRef, syncSale, statusPatch, paymentPatch } from "./sales.js";
+import { readStock, writeStockChange, availableOf, readWarehouses, createStockContext, flushStockContext } from "./inventory.js";
 import { applyCoupon, releaseCoupon } from "./coupons.js";
-import { computeShipping, listAvailableMethods } from "./shipping.js";
+import { computeShipping, loadShippingData, shippingFor } from "./shipping.js";
 
 const orders = () => db.collection("orders");
 
@@ -81,7 +85,8 @@ function assertStoreOpen(pub, priv) {
 
 /** @param {{ items: any[], city: string, shippingMethodId?: string, couponCode?: string }} input */
 export async function quote(input, uid = null) {
-  const methods = await listAvailableMethods();
+  // Methods and their rates are read ONCE; every delivery option is then priced from that copy.
+  const methods = await loadShippingData();
   if (!methods.length) throw new AppError("failed-precondition", "Delivery hasn't been set up yet, so orders can't be placed. Please contact the store.");
 
   const [stocks, settings] = await Promise.all([
@@ -94,7 +99,7 @@ export async function quote(input, uid = null) {
   const options = [];
   for (const m of methods) {
     try {
-      const s = await computeShipping(m.id, input.city, subtotal);
+      const s = shippingFor(m, m.rates, input.city, subtotal);
       options.push({ id: m.id, name: s.name, estimateText: s.estimateText, charge: s.charge });
     } catch {
       /* not available for this city */
@@ -134,14 +139,21 @@ export async function placeOrder(data, { uid, email }) {
   const orderRef = orders().doc();
 
   const created = await db.runTransaction(async (tx) => {
-    const [idem, counter, pub, priv, cod, ...stocks] = await Promise.all([
+    const [idem, counter, pub, priv, cod, warehouses, saleCounter, acc, ...rest] = await Promise.all([
       tx.get(idemRef),
       tx.get(counterRef),
       tx.get(db.doc("settings/public")),
       tx.get(db.doc("settings/private")),
       tx.get(db.doc("paymentMethods/cod")),
+      readWarehouses(tx),
+      tx.get(salesCounter()),
+      readAccounting(tx),
       ...data.items.map((i) => readStock(tx, i.productId, i.variantId)),
+      // The cost of each pair as it stands right now, saved on the sale so later cost changes never rewrite it.
+      ...data.items.map((i) => tx.get(db.collection("variantCosts").doc(inventoryId(i.productId, i.variantId)))),
     ]);
+    const stocks = rest.slice(0, data.items.length);
+    const costDocs = rest.slice(data.items.length);
     if (idem.exists) return { ...idem.data(), existing: true };
     assertStoreOpen(pub.data(), priv.data());
     if (cod.exists && cod.data().isEnabled === false) throw new AppError("failed-precondition", "Cash on Delivery isn't available right now.");
@@ -157,7 +169,15 @@ export async function placeOrder(data, { uid, email }) {
     const number = `${priv.data().orderPrefix}-${new Date().getUTCFullYear()}-${String(seq).padStart(6, "0")}`;
     tx.set(counterRef, { next: seq + 1 });
 
-    tx.create(orderRef, {
+    // Take the pairs from the online warehouses (default first). The product summaries are updated in this same
+    // transaction, so nothing has to be re-read afterwards. Where each pair came from is kept privately, so a
+    // cancellation or return puts it back in the same warehouse.
+    const stockCtx = createStockContext(warehouses);
+    const allocations = stocks.map((stock, i) => writeStockChange(tx, stock, { change: -lines[i].qty, reason: "sale", note: number, orderId: orderRef.id, actorUid: uid, settings: priv.data(), ctx: stockCtx, sourceType: "order", sourceId: orderRef.id }).allocations);
+    flushStockContext(tx, stockCtx);
+    tx.create(orderRef.collection("stock").doc("allocations"), { lines: allocations.map((a) => ({ allocations: a })), createdAt: FieldValue.serverTimestamp() });
+
+    const orderDoc = {
       number,
       userId: uid,
       status: "pending",
@@ -172,15 +192,28 @@ export async function placeOrder(data, { uid, email }) {
       ...t,
       shippingMethod: { id: shipping.methodId, name: shipping.name, estimateText: shipping.estimateText },
       couponCode: coupon ? data.couponCode : null,
-      createdAt: FieldValue.serverTimestamp(),
-      updatedAt: FieldValue.serverTimestamp(),
+    };
+    // The linked sale (same id as the order) is created in THIS transaction: exactly one per order.
+    const saleNo = nextSaleNumber(saleCounter);
+    tx.set(salesCounter(), { next: saleNo.nextValue });
+    const built = saleFromOrder(orderDoc, {
+      orderId: orderRef.id,
+      number: saleNo.number,
+      unitCosts: costDocs.map((d) => (d.exists ? d.data().costPrice ?? null : null)),
+      allocations,
+      actorUid: uid,
+      idempotencyKey: data.idempotencyKey,
+      pay: { amount: t.grandTotal, status: "pending" },
     });
+    createSale(tx, orderRef.id, built);
+    // The sale's journal commits with the order (or is recorded as a failed posting to fix; accounting being off just skips it).
+    postInTx(tx, acc, saleSpec(orderRef.id, built.sale, built.saleCost, new Date()), uid);
+    finishAccounting(tx, acc);
+    tx.create(orderRef, { ...orderDoc, saleId: orderRef.id, saleNumber: saleNo.number, createdAt: FieldValue.serverTimestamp(), updatedAt: FieldValue.serverTimestamp() });
     coupon?.commit(tx);
     tx.create(orderRef.collection("history").doc(), { from: null, to: "pending", note: "Order placed", actorUid: uid, at: FieldValue.serverTimestamp() });
     tx.create(db.collection("payments").doc(orderRef.id), { orderId: orderRef.id, orderNumber: number, method: data.paymentMethod, amount: t.grandTotal, status: "pending", createdAt: FieldValue.serverTimestamp() });
     tx.create(idemRef, { orderId: orderRef.id, number, createdAt: FieldValue.serverTimestamp() });
-
-    stocks.forEach((stock, i) => writeStockChange(tx, stock, { change: -lines[i].qty, reason: "sale", note: number, orderId: orderRef.id, actorUid: uid, settings: priv.data() }));
 
     if (priv.data().notifyNewOrders !== false) {
       notify({ type: "order.new", audience: "orders.read", title: `New order ${number}`, body: `${data.customer.name} · ${lines.reduce((n, l) => n + l.qty, 0)} item(s)`, link: `/admin/orders/${orderRef.id}`, data: { orderId: orderRef.id } }, tx);
@@ -188,7 +221,6 @@ export async function placeOrder(data, { uid, email }) {
     return { orderId: orderRef.id, number, existing: false };
   });
 
-  if (!created.existing) await Promise.all([...new Set(data.items.map((i) => i.productId))].map((id) => recomputeSummary(id)));
   return { orderId: created.orderId, number: created.number, existing: created.existing };
 }
 
@@ -200,7 +232,6 @@ export async function placeOrder(data, { uid, email }) {
  */
 export async function updateOrderStatus({ orderId, status: to, note = "" }, { actorUid, ownerUid = null }) {
   const ref = orders().doc(orderId);
-  const touched = new Set();
 
   await db.runTransaction(async (tx) => {
     const snap = await tx.get(ref);
@@ -213,25 +244,54 @@ export async function updateOrderStatus({ orderId, status: to, note = "" }, { ac
     const restock = /** @type {string[]} */ (RESTOCK_ON_ENTER).includes(to);
     const payRef = db.collection("payments").doc(ref.id);
     const giveBackCoupon = to === "cancelled" && Boolean(order.couponCode);
-    const [priv, pay, couponSnap, ...stocks] = await Promise.all([tx.get(db.doc("settings/private")), tx.get(payRef), giveBackCoupon ? tx.get(db.collection("coupons").doc(order.couponCode)) : null, ...(restock ? order.items.map((l) => readStock(tx, l.productId, l.variantId)) : [])]);
+    const [priv, pay, couponSnap, warehouses, allocationDoc, saleSnap, acc, ...stocks] = await Promise.all([
+      tx.get(db.doc("settings/private")),
+      tx.get(payRef),
+      giveBackCoupon ? tx.get(db.collection("coupons").doc(order.couponCode)) : null,
+      restock ? readWarehouses(tx) : null,
+      restock ? tx.get(ref.collection("stock").doc("allocations")) : null,
+      tx.get(saleRef(ref.id)),
+      restock ? readAccounting(tx, { journals: [`sale__${ref.id}`, `reversal__sale__${ref.id}`] }) : null,
+      ...(restock ? order.items.map((l) => readStock(tx, l.productId, l.variantId)) : []),
+    ]);
     // Nothing was collected, so nothing is owed any more: close the payment instead of leaving "cash due" hanging.
     const voidPayment = restock && pay.exists && pay.data().status === "pending";
 
     if (restock) {
+      // Put each pair back where the sale took it from (orders placed before warehouses existed: the default warehouse).
+      const stockCtx = createStockContext(warehouses);
+      const taken = allocationDoc?.exists ? allocationDoc.data().lines : [];
       stocks.forEach((stock, i) => {
-        writeStockChange(tx, stock, { change: order.items[i].qty, reason: to === "cancelled" ? "cancellation" : "return", note: order.number, orderId: ref.id, actorUid, settings: priv.data() });
-        touched.add(order.items[i].productId);
+        writeStockChange(tx, stock, {
+          change: order.items[i].qty,
+          reason: to === "cancelled" ? "cancellation" : "return",
+          note: order.number,
+          orderId: ref.id,
+          actorUid,
+          settings: priv.data(),
+          ctx: stockCtx,
+          allocations: taken[i]?.allocations ?? null,
+          sourceType: "order",
+          sourceId: ref.id,
+        });
       });
+      flushStockContext(tx, stockCtx);
     }
     if (couponSnap?.exists) releaseCoupon(tx, order.couponCode, order.userId);
     tx.update(ref, { status: to, updatedAt: FieldValue.serverTimestamp(), ...(voidPayment ? { paymentStatus: "void" } : {}) });
     if (voidPayment) tx.update(payRef, { status: "void", updatedAt: FieldValue.serverTimestamp() });
+    // The linked sale follows the order in the same transaction (status, and the payment summary when it was voided).
+    if (restock && acc) {
+      // A cancelled or returned sale: reverse its journal (revenue, receivable, cost of goods sold and inventory) in this same transaction.
+      reverseInTx(tx, acc, `sale__${ref.id}`, `Order ${to}`, pktDateKey(new Date()), actorUid);
+      finishAccounting(tx, acc);
+    }
+    syncSale(tx, saleSnap, { ...statusPatch(to), ...(voidPayment ? paymentPatch({ ...pay.data(), status: "void" }) : {}) }, actorUid);
     tx.create(ref.collection("history").doc(), { from: order.status, to, note, actorUid, at: FieldValue.serverTimestamp() });
     notify({ type: to === "cancelled" ? "order.cancelled" : "order.status", audience: "orders.read", title: `Order ${order.number} is now ${to}`, link: `/admin/orders/${ref.id}`, data: { orderId: ref.id, from: order.status, to } }, tx);
     writeAudit({ actorUid, action: ownerUid ? "order.cancelled_by_customer" : "order.status", entityType: "order", entityId: ref.id, changes: { from: order.status, to, note } }, tx);
   });
 
-  await Promise.all([...touched].map((id) => recomputeSummary(id)));
   return { orderId, status: to };
 }
 

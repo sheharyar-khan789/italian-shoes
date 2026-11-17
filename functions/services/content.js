@@ -8,6 +8,7 @@
 import { db, FieldValue } from "../lib/admin.js";
 import { AppError } from "../lib/errors.js";
 import { writeAudit } from "../lib/audit.js";
+import { markCatalogDirty } from "./catalogSnapshot.js";
 
 const stamp = (actorUid) => ({ updatedAt: FieldValue.serverTimestamp(), updatedBy: actorUid });
 
@@ -56,6 +57,7 @@ export async function saveHome(input, actorUid) {
     if (bad.length) throw new AppError("invalid-argument", "Only published products can be featured.", { fields: { featuredProductIds: "Includes an unpublished or missing product" } });
   }
   await db.doc("content/home").set({ ...input, ...stamp(actorUid) });
+  await markCatalogDirty();
   await writeAudit({ actorUid, action: "home.updated", entityType: "content", entityId: "home", changes: { after: input } });
   return { ok: true };
 }

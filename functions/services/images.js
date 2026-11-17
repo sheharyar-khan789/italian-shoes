@@ -20,15 +20,19 @@ import { auth as adminAuth, db, FieldValue } from "../lib/admin.js";
 import { AppError } from "../lib/errors.js";
 import { log } from "../lib/logger.js";
 import { writeAudit } from "../lib/audit.js";
+import { markCatalogDirty } from "./catalogSnapshot.js";
 import { hasPermission, assertSessionStillValid } from "../lib/callable.js";
 import { consumeRateLimit } from "../lib/rateLimit.js";
 import { IMAGE_UPLOAD } from "../shared/schemas/catalog.js";
+import { RECEIPT_UPLOAD } from "../shared/finance.js";
 
 export const IMAGE_WIDTHS = [400, 800, 1600];
 const ALLOWED_FORMATS = new Set(["jpeg", "png", "webp"]);
 const MIN_SIDE = 300;
 const MAX_SIDE = 12000;
 const BLOB_HOST = /^[a-z0-9-]+\.public\.blob\.vercel-storage\.com$/i;
+const LOGO_MAX_BYTES = 2 * 1024 * 1024;
+const LOGO_SIDE = 600;
 const PRODUCT_ID = /^[A-Za-z0-9_-]{1,128}$/;
 
 /** Network access, replaceable in tests. */
@@ -69,6 +73,32 @@ export async function authorizeBlobUpload({ pathname, authorization }, { verifyT
     token = await verifyToken(bearer);
   } catch {
     throw new AppError("unauthenticated", "Your session has expired. Please sign in again.");
+  }
+  // Receipts and invoices for expenses: PDF or image, 5 MB, under receipts/{uid}/ for people who may record finance entries.
+  if (pathname.startsWith("receipts/")) {
+    if (!["finance.write", "purchases.manage", "suppliers.manage"].some((p) => hasPermission(token, p))) throw new AppError("permission-denied", "You don't have permission to do this.");
+    await assertSessionStillValid(token.uid, token);
+    await consumeRateLimit("blobUpload", token.uid, { limit: 120, windowSeconds: 600 });
+    if (!pathname.startsWith(`receipts/${token.uid}/`) || !/^[A-Za-z0-9._-]{1,120}$/.test(pathname.slice(`receipts/${token.uid}/`.length))) throw new AppError("invalid-argument", "That upload location isn't allowed.");
+    return { allowedContentTypes: RECEIPT_UPLOAD.types, maximumSizeInBytes: RECEIPT_UPLOAD.maxBytes, addRandomSuffix: true, tokenPayload: JSON.stringify({ uid: token.uid, kind: "receipt" }) };
+  }
+  // Employee documents (CNIC copies, contracts) under hr/{uid}/ and employee photos under hrphoto/{uid}/: PDF or image, 5 MB,
+  // for people who may manage employees. Both go to the PRIVATE store (see api/blobUpload.js) and are never public.
+  if (pathname.startsWith("hr/") || pathname.startsWith("hrphoto/")) {
+    const folder = pathname.startsWith("hrphoto/") ? "hrphoto" : "hr";
+    if (!(folder === "hr" ? ["hr.sensitive", "hr.write"] : ["hr.write"]).some((p) => hasPermission(token, p))) throw new AppError("permission-denied", "You don't have permission to do this.");
+    await assertSessionStillValid(token.uid, token);
+    await consumeRateLimit("blobUpload", token.uid, { limit: 60, windowSeconds: 600 });
+    if (!pathname.startsWith(`${folder}/${token.uid}/`) || !/^[A-Za-z0-9._-]{1,120}$/.test(pathname.slice(`${folder}/${token.uid}/`.length))) throw new AppError("invalid-argument", "That upload location isn't allowed.");
+    return { allowedContentTypes: RECEIPT_UPLOAD.types, maximumSizeInBytes: RECEIPT_UPLOAD.maxBytes, addRandomSuffix: true, tokenPayload: JSON.stringify({ uid: token.uid, kind: folder }) };
+  }
+  // The store logo: a small image under logo/{uid}/, for people who may change the store settings.
+  if (pathname.startsWith("logo/")) {
+    if (!hasPermission(token, "settings.manage")) throw new AppError("permission-denied", "You don't have permission to do this.");
+    await assertSessionStillValid(token.uid, token);
+    await consumeRateLimit("blobUpload", token.uid, { limit: 20, windowSeconds: 600 });
+    if (!pathname.startsWith(`logo/${token.uid}/`) || !/^[A-Za-z0-9._-]{1,120}$/.test(pathname.slice(`logo/${token.uid}/`.length))) throw new AppError("invalid-argument", "That upload location isn't allowed.");
+    return { allowedContentTypes: IMAGE_UPLOAD.types, maximumSizeInBytes: LOGO_MAX_BYTES, addRandomSuffix: true, tokenPayload: JSON.stringify({ uid: token.uid, kind: "logo" }) };
   }
   if (!hasPermission(token, "products.write")) throw new AppError("permission-denied", "You don't have permission to do this.");
   await assertSessionStillValid(token.uid, token);
@@ -173,6 +203,7 @@ export async function addProductImage({ productId, url }, actorUid) {
     const images = snap.data().images ?? [];
     images.push({ id: imageId, paths, width: processed.width, height: processed.height, alt: "", isPrimary: images.length === 0 });
     tx.update(ref, { images, updatedAt: FieldValue.serverTimestamp(), updatedBy: actorUid });
+    markCatalogDirty(tx);
   });
   await discard();
   await writeAudit({ actorUid, action: "product.image_added", entityType: "product", entityId: productId, changes: { imageId } });
@@ -217,8 +248,80 @@ export async function imageAction(input, actorUid) {
       }
     }
     tx.update(ref, { images, updatedAt: FieldValue.serverTimestamp(), updatedBy: actorUid });
+    markCatalogDirty(tx);
     writeAudit({ actorUid, action: `product.image_${input.action}`, entityType: "product", entityId: input.productId, changes: { imageId: input.imageId ?? null } }, tx);
   });
   if (removed) await blobIO.del(Object.values(removed.paths)).catch((error) => log.warn("Couldn't delete photo files", { error }));
   return { ok: true };
+}
+
+/* ───────── 4. Store logo ───────── */
+
+/**
+ * Turn an uploaded picture into the store logo: checked for real, shrunk to fit 600 × 600, converted to WebP with the
+ * metadata removed, stored publicly, and the address saved in the public settings. The previous logo file is deleted.
+ * @param {{ url: string }} input validated @param {string} actorUid
+ */
+export async function setStoreLogo({ url }, actorUid) {
+  let u;
+  try {
+    u = new URL(url);
+  } catch {
+    throw new AppError("invalid-argument", "That upload link isn't valid.");
+  }
+  if (u.protocol !== "https:" || !BLOB_HOST.test(u.hostname) || !u.pathname.startsWith(`/logo/${actorUid}/`)) throw new AppError("invalid-argument", "That upload link isn't valid.");
+  const discard = () => blobIO.del(url).catch((error) => log.warn("Couldn't delete an upload", { error }));
+  /** @type {Buffer} */
+  let out;
+  try {
+    const original = await blobIO.fetchSource(url);
+    if (original.length > LOGO_MAX_BYTES) throw new AppError("invalid-argument", "The logo is larger than 2 MB.");
+    let meta;
+    try {
+      meta = await sharp(original, { limitInputPixels: MAX_SIDE * MAX_SIDE }).metadata();
+    } catch {
+      throw new AppError("invalid-argument", "This file isn't a valid image.");
+    }
+    if (!ALLOWED_FORMATS.has(meta.format ?? "")) throw new AppError("invalid-argument", "Use a JPEG, PNG or WebP picture.");
+    if (Math.min(meta.width ?? 0, meta.height ?? 0) < 50) throw new AppError("invalid-argument", "The logo is too small — at least 50 × 50 pixels.");
+    out = await sharp(original, { limitInputPixels: MAX_SIDE * MAX_SIDE }).rotate().resize({ width: LOGO_SIDE, height: LOGO_SIDE, fit: "inside", withoutEnlargement: true }).webp({ quality: 90 }).toBuffer();
+  } catch (error) {
+    await discard();
+    if (error instanceof AppError) throw error;
+    log.error("Logo processing failed", { error });
+    throw new AppError("invalid-argument", "The logo couldn't be processed. Please try another file.");
+  }
+  let stored;
+  try {
+    stored = await blobIO.put(`branding/logo-${randomUUID().replace(/-/g, "").slice(0, 16)}.webp`, out);
+  } catch (error) {
+    await discard();
+    log.error("Storing the logo failed", { error });
+    throw new AppError("unavailable", "The logo couldn't be saved. Please try again.");
+  }
+  const pubRef = db.collection("settings").doc("public");
+  const previous = await db.runTransaction(async (tx) => {
+    const snap = await tx.get(pubRef);
+    tx.set(pubRef, { logoUrl: stored, updatedAt: FieldValue.serverTimestamp(), updatedBy: actorUid }, { merge: true });
+    markCatalogDirty(tx);
+    return snap.data()?.logoUrl ?? "";
+  });
+  await discard();
+  if (previous && previous !== stored && BLOB_HOST.test(new URL(previous).hostname) && new URL(previous).pathname.startsWith("/branding/")) await blobIO.del(previous).catch((error) => log.warn("Couldn't delete the old logo", { error }));
+  await writeAudit({ actorUid, action: "settings.logo_set", entityType: "settings", entityId: "store", changes: { logoUrl: stored } });
+  return { logoUrl: stored };
+}
+
+/** Remove the store logo (the file is deleted too). @param {string} actorUid */
+export async function removeStoreLogo(actorUid) {
+  const pubRef = db.collection("settings").doc("public");
+  const previous = await db.runTransaction(async (tx) => {
+    const snap = await tx.get(pubRef);
+    tx.set(pubRef, { logoUrl: FieldValue.delete(), updatedAt: FieldValue.serverTimestamp(), updatedBy: actorUid }, { merge: true });
+    markCatalogDirty(tx);
+    return snap.data()?.logoUrl ?? "";
+  });
+  if (previous) await blobIO.del(previous).catch((error) => log.warn("Couldn't delete the logo file", { error }));
+  await writeAudit({ actorUid, action: "settings.logo_removed", entityType: "settings", entityId: "store", changes: {} });
+  return { logoUrl: "" };
 }

@@ -18,27 +18,61 @@ export const rateId = (methodId, city) => `${methodId}__${encodeURIComponent(nor
 
 /* ───────── Reading (checkout) ───────── */
 
-/** Active methods that have at least one rate. */
-export async function listAvailableMethods() {
-  const [methods, rates] = await Promise.all([db.collection("shippingMethods").where("isActive", "==", true).get(), db.collection("shippingRates").get()]);
-  const withRates = new Set(rates.docs.map((r) => r.data().methodId));
-  return methods.docs.filter((m) => withRates.has(m.id)).map((m) => ({ id: m.id, ...m.data() }));
+/**
+ * Can customers check out at all? True when an active delivery method has at least one rate.
+ * Cheap on purpose (at most 2 reads, no per-rate scan) because the public catalog calls it.
+ */
+export async function isDeliveryReady() {
+  const methods = await db.collection("shippingMethods").where("isActive", "==", true).limit(10).get();
+  if (methods.empty) return false;
+  const rate = await db.collection("shippingRates").where("methodId", "in", methods.docs.map((m) => m.id)).limit(1).get();
+  return !rate.empty;
 }
 
 /**
- * Charge in paisa for a method + city + order subtotal.
+ * Active methods that have at least one rate, each with its rates. The methods and ALL rates are read once
+ * (a quote prices every option from this copy instead of re-reading the rates for each method).
+ * @returns {Promise<(Record<string, any> & { id: string, rates: Record<string, any>[] })[]>}
+ */
+export async function loadShippingData() {
+  const [methods, rates] = await Promise.all([db.collection("shippingMethods").where("isActive", "==", true).get(), db.collection("shippingRates").get()]);
+  /** @type {Map<string, Record<string, any>[]>} */
+  const byMethod = new Map();
+  for (const r of rates.docs) {
+    const d = r.data();
+    byMethod.set(d.methodId, [...(byMethod.get(d.methodId) ?? []), d]);
+  }
+  return methods.docs.filter((m) => byMethod.has(m.id)).map((m) => ({ id: m.id, ...m.data(), rates: /** @type {Record<string, any>[]} */ (byMethod.get(m.id)) }));
+}
+
+/** Active methods that have at least one rate. */
+export async function listAvailableMethods() {
+  return (await loadShippingData()).map(({ rates: _rates, ...method }) => method);
+}
+
+/**
+ * Charge in paisa for a method (already loaded) + city + order subtotal. No database access.
  * A rate for the exact city wins over the "*" (all other cities) rate; the free-shipping threshold applies.
+ * @param {Record<string, any> & { id: string }} method @param {Record<string, any>[]} rates
+ * @returns {{ methodId: string, name: string, estimateText: string, charge: number }}
+ */
+export function shippingFor(method, rates, city, subtotal) {
+  if (method.isActive !== true) throw new AppError("failed-precondition", "That delivery option isn't available. Please choose another.");
+  if (!rates.length) throw new AppError("failed-precondition", "Delivery charges haven't been set up for this option yet.");
+  const rate = rates.find((r) => norm(r.city) === norm(city)) ?? rates.find((r) => r.city === "*");
+  if (!rate) throw new AppError("failed-precondition", `We don't deliver to ${city} with this option.`, { fields: { city: "Not available for delivery" } });
+  const free = rate.freeOver != null && subtotal >= rate.freeOver;
+  return { methodId: method.id, name: method.name, estimateText: method.estimateText ?? "", charge: free ? 0 : rate.charge };
+}
+
+/**
+ * Charge in paisa for one method id (used when placing an order: reads just that method and its rates).
  * @returns {Promise<{ methodId: string, name: string, estimateText: string, charge: number }>}
  */
 export async function computeShipping(methodId, city, subtotal) {
   const [method, rates] = await Promise.all([db.collection("shippingMethods").doc(methodId).get(), db.collection("shippingRates").where("methodId", "==", methodId).get()]);
-  if (!method.exists || method.data().isActive !== true) throw new AppError("failed-precondition", "That delivery option isn't available. Please choose another.");
-  if (rates.empty) throw new AppError("failed-precondition", "Delivery charges haven't been set up for this option yet.");
-  const all = rates.docs.map((d) => d.data());
-  const rate = all.find((r) => norm(r.city) === norm(city)) ?? all.find((r) => r.city === "*");
-  if (!rate) throw new AppError("failed-precondition", `We don't deliver to ${city} with this option.`, { fields: { city: "Not available for delivery" } });
-  const free = rate.freeOver != null && subtotal >= rate.freeOver;
-  return { methodId, name: method.data().name, estimateText: method.data().estimateText ?? "", charge: free ? 0 : rate.charge };
+  if (!method.exists) throw new AppError("failed-precondition", "That delivery option isn't available. Please choose another.");
+  return shippingFor({ id: method.id, ...method.data() }, rates.docs.map((d) => d.data()), city, subtotal);
 }
 
 /* ───────── Managing (admin) ───────── */

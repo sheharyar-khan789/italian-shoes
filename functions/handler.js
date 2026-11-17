@@ -20,7 +20,8 @@ export async function handleApi({ method, name, headers, body }, deps) {
     if (method !== "GET") return { status: 405, body: { ok: false, error: "Method not allowed" }, headers: { ...noStore, Allow: "GET" } };
     try {
       await db.collection("_migrations").limit(1).get();
-      return { status: 200, body: { ok: true, firestore: "reachable" }, headers: noStore };
+      // photoStorage only says whether the Vercel Blob token is present (never its value), so the admin can explain a failed upload.
+      return { status: 200, body: { ok: true, firestore: "reachable", photoStorage: process.env.BLOB_READ_WRITE_TOKEN ? "connected" : "not-connected" }, headers: noStore };
     } catch (error) {
       log.error("Health check: Firestore unreachable", error);
       return { status: 503, body: { ok: false, firestore: "unreachable" }, headers: noStore };

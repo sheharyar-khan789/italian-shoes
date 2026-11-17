@@ -5,6 +5,7 @@
 import { db, FieldValue } from "../lib/admin.js";
 import { AppError } from "../lib/errors.js";
 import { writeAudit } from "../lib/audit.js";
+import { markCatalogDirty } from "./catalogSnapshot.js";
 
 const COLLECTION = { category: "categories", brand: "brands", color: "colors", size: "sizes" };
 
@@ -46,6 +47,7 @@ export async function saveCatalogItem(kind, input, actorUid) {
     if (current) tx.update(ref, { ...data, ...stamp });
     else tx.create(ref, { ...data, ...stamp, createdAt: FieldValue.serverTimestamp() });
     writeAudit({ actorUid, action: `${kind}.${current ? "updated" : "created"}`, entityType: kind, entityId: ref.id, changes: { after: data } }, tx);
+    markCatalogDirty(tx);
   });
   return { id: ref.id };
 }
@@ -75,6 +77,7 @@ export async function deleteCatalogItem(kind, id, actorUid) {
   const snap = await ref.get();
   if (!snap.exists) throw new AppError("not-found", "That item no longer exists.");
   await ref.delete();
+  await markCatalogDirty();
   await writeAudit({ actorUid, action: `${kind}.deleted`, entityType: kind, entityId: id, changes: { before: snap.data() } });
   return { id };
 }

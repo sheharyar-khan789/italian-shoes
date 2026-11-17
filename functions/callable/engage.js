@@ -28,4 +28,6 @@ export const saveHome = secureCallable("saveHome", { ...CONTENT, schema: saveHom
 export const deleteContentItem = secureCallable("deleteContentItem", { ...CONTENT, schema: deleteContentInput }, ({ data, uid }) => content.deleteContent(data.kind, data.id, uid));
 
 export const salesReport = secureCallable("salesReport", { ...staff("reports.sales", 60), schema: reportRangeInput }, ({ data }) => reports.salesReport(data));
-export const inventoryReport = secureCallable("inventoryReport", staff("reports.inventory", 60), () => reports.inventoryReport());
+// Named stockSummaryReport: "inventoryReport" belongs to the Phase 10 inventory reports (functions/callable/inventory.js). Two endpoints
+// shared that name and the later one silently replaced this one, which broke the Reports screen.
+export const stockSummaryReport = secureCallable("stockSummaryReport", staff("reports.inventory", 60), () => reports.inventoryReport());

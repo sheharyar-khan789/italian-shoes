@@ -4,12 +4,21 @@
 import { secureCallable } from "../lib/callable.js";
 import { recordCollectionInput, recordRefundInput, setPaymentMethodInput, saveShippingMethodInput, saveShippingRateInput, deleteShippingInput } from "../shared/schemas/index.js";
 import * as payments from "../services/payments.js";
+import * as crmInsights from "../services/crmInsights.js";
 import * as shipping from "../services/shipping.js";
 
 const PAY = { auth: /** @type {const} */ ("required"), permission: "payments.update", rateLimit: { limit: 120, windowSeconds: 600 } };
 
-export const recordCollection = secureCallable("recordCollection", { ...PAY, schema: recordCollectionInput }, ({ data, uid }) => payments.recordCollection(data, uid));
-export const recordRefund = secureCallable("recordRefund", { ...PAY, rateLimit: { limit: 30, windowSeconds: 600 }, schema: recordRefundInput }, ({ data, uid }) => payments.recordRefund(data, uid));
+export const recordCollection = secureCallable("recordCollection", { ...PAY, schema: recordCollectionInput }, async ({ data, uid }) => {
+  const r = await payments.recordCollection(data, uid);
+  await crmInsights.afterSale(data.orderId); // loyalty points and customer statistics (never fails the payment)
+  return r;
+});
+export const recordRefund = secureCallable("recordRefund", { ...PAY, rateLimit: { limit: 30, windowSeconds: 600 }, schema: recordRefundInput }, async ({ data, uid }) => {
+  const r = await payments.recordRefund(data, uid);
+  await crmInsights.afterRefund(data.orderId); // take back the points the refunded part earned
+  return r;
+});
 export const setPaymentMethod = secureCallable(
   "setPaymentMethod",
   { auth: "required", permission: "settings.manage", schema: setPaymentMethodInput, rateLimit: { limit: 30, windowSeconds: 600 } },

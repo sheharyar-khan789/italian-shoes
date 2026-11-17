@@ -65,6 +65,8 @@ export const stockAdjustmentSchema = z
   .object({
     productId: docId,
     variantId: docId,
+    /** Which warehouse the change applies to. Left out = the default warehouse (keeps older callers working). */
+    warehouseId: docId.optional(),
     change: z.number().int().refine((n) => n !== 0, "Change cannot be zero").refine((n) => Math.abs(n) <= 100000, "Too large"),
     reason: z.enum(STOCK_REASONS),
     note: optionalText(300),

@@ -9,6 +9,7 @@
 import { db, FieldValue } from "../lib/admin.js";
 import { AppError } from "../lib/errors.js";
 import { writeAudit } from "../lib/audit.js";
+import { markCatalogDirty } from "./catalogSnapshot.js";
 import { notify } from "../lib/notify.js";
 import { assertNotSuspended } from "./orders.js";
 
@@ -26,7 +27,10 @@ export async function recomputeRating(productId) {
   const count = approved.size;
   const avg = count ? Math.round((approved.docs.reduce((n, d) => n + d.data().rating, 0) / count) * 10) / 10 : 0;
   const ref = db.collection("products").doc(productId);
-  if ((await ref.get()).exists) await ref.update({ rating: { avg, count } });
+  if ((await ref.get()).exists) {
+    await ref.update({ rating: { avg, count } });
+    await markCatalogDirty();
+  }
   return { avg, count };
 }
 

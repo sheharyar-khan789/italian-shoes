@@ -12,6 +12,8 @@
 import { db, FieldValue } from "../lib/admin.js";
 import { AppError } from "../lib/errors.js";
 import { writeAudit } from "../lib/audit.js";
+import { markCatalogDirty } from "./catalogSnapshot.js";
+import { DEFAULT_WAREHOUSE_ID } from "../shared/schemas/warehouses.js";
 
 export const variantKey = (colorId, sizeId) => `${colorId}_${sizeId}`;
 export const inventoryId = (productId, variantId) => `${productId}__${variantId}`;
@@ -74,6 +76,7 @@ export async function saveProduct(input, actorUid) {
         ...stamp,
       });
     writeAudit({ actorUid, action: current ? "product.updated" : "product.created", entityType: "product", entityId: ref.id, changes: { after: data } }, tx);
+    markCatalogDirty(tx);
   });
   await recomputeSummary(ref.id);
   return { id: ref.id };
@@ -106,6 +109,7 @@ export async function setProductStatus(productId, status, actorUid) {
       updatedBy: actorUid,
     });
     writeAudit({ actorUid, action: "product.status", entityType: "product", entityId: productId, changes: { from: p.status, to: status } }, tx);
+    markCatalogDirty(tx);
   });
   return { id: productId, status };
 }
@@ -142,10 +146,21 @@ export async function saveVariant(input, { actorUid, canEditCost }) {
     if (current.exists) tx.update(ref, { ...data, ...display, ...stamp });
     else {
       tx.create(ref, { ...data, ...display, available: 0, createdAt: FieldValue.serverTimestamp(), ...stamp });
-      tx.create(invRef, { productId, variantId: key, onHand: 0, reserved: 0, lowStockThreshold: input.lowStockThreshold, sku: data.sku, updatedAt: FieldValue.serverTimestamp() });
+      tx.create(invRef, {
+        productId,
+        variantId: key,
+        onHand: 0,
+        reserved: 0,
+        available: 0,
+        totalOnHand: 0,
+        byWarehouse: { [DEFAULT_WAREHOUSE_ID]: { onHand: 0, reserved: 0 } },
+        lowStockThreshold: input.lowStockThreshold,
+        sku: data.sku,
+        updatedAt: FieldValue.serverTimestamp(),
+      });
     }
     if (current.exists) tx.update(invRef, { lowStockThreshold: input.lowStockThreshold, sku: data.sku });
-    if (canEditCost) tx.set(db.collection("variantCosts").doc(inventoryId(productId, key)), { productId, variantId: key, costPrice, updatedAt: FieldValue.serverTimestamp(), updatedBy: actorUid });
+    if (canEditCost) tx.set(db.collection("variantCosts").doc(inventoryId(productId, key)), { productId, variantId: key, costPrice, updatedAt: FieldValue.serverTimestamp(), updatedBy: actorUid }, { merge: true });
     writeAudit({ actorUid, action: current.exists ? "variant.updated" : "variant.created", entityType: "variant", entityId: `${productId}/${key}`, changes: { after: data, costChanged: canEditCost } }, tx);
   });
   await recomputeSummary(productId);
@@ -227,5 +242,6 @@ export async function recomputeSummary(productId) {
     keywords: words(p.name, p.sku, category.data()?.name ?? "", brand?.data()?.name ?? "", ...active.map((v) => v.colorName ?? "")),
   };
   await ref.update({ summary });
+  await markCatalogDirty();
   return summary;
 }

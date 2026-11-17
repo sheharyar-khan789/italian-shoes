@@ -61,6 +61,7 @@ export async function salesReport({ from, to }) {
     const txs = await p.ref.collection("transactions").get();
     for (const t of txs.docs) {
       if (t.data().type === "collection") collected += t.data().amount;
+      if (t.data().type === "reversal") collected -= t.data().amount; // a corrected entry no longer counts as cash received
       if (t.data().type === "refund") refunded += t.data().amount;
     }
   }
@@ -80,16 +81,48 @@ export async function salesReport({ from, to }) {
   };
 }
 
-/** Stock position: what's out, what's low (uses the owner's threshold), total units on hand. */
+/** Most rows listed per section; the totals still count every variant. */
+const LIST_LIMIT = 50;
+
+/**
+ * Stock position: what's out, what's low (uses the owner's threshold), total units on hand.
+ * Product names and colour/size labels are looked up only for the rows that are listed, in two
+ * batched reads (db.getAll), so the report never does one read per row.
+ */
 export async function inventoryReport() {
   const [inv, priv] = await Promise.all([db.collection("inventory").get(), db.doc("settings/private").get()]);
   const threshold = priv.data()?.lowStockThreshold ?? 0;
-  const rows = inv.docs.map((d) => { const [productId, variantId] = d.id.split("__"); return { productId, variantId, onHand: d.data().onHand ?? 0, reserved: d.data().reserved ?? 0 }; });
+  const rows = inv.docs.map((d) => {
+    const x = d.data();
+    const [idProduct, idVariant] = d.id.split("__");
+    return { productId: x.productId ?? idProduct, variantId: x.variantId ?? idVariant, sku: x.sku ?? "", onHand: x.onHand ?? 0, reserved: x.reserved ?? 0 };
+  });
+  const out = rows.filter((r) => r.onHand <= 0);
+  const low = rows.filter((r) => r.onHand > 0 && r.onHand <= threshold);
+  const shown = [...out.slice(0, LIST_LIMIT), ...low.slice(0, LIST_LIMIT)];
+
+  const productIds = [...new Set(shown.map((r) => r.productId))];
+  const [products, variants] = shown.length
+    ? await Promise.all([
+        db.getAll(...productIds.map((id) => db.collection("products").doc(id))),
+        db.getAll(...shown.map((r) => db.collection("products").doc(r.productId).collection("variants").doc(r.variantId))),
+      ])
+    : [[], []];
+  const nameOf = new Map(products.map((p) => [p.id, p.exists ? p.data().name : null]));
+  const labelOf = new Map(variants.map((v) => [v.ref.path, v.exists ? `${v.data().colorName ?? ""} / ${v.data().sizeLabel ?? ""}`.trim() : null]));
+  const describe = (r) => ({
+    ...r,
+    productName: nameOf.get(r.productId) ?? "Deleted product",
+    variantLabel: labelOf.get(`products/${r.productId}/variants/${r.variantId}`) ?? "",
+  });
+
   return {
     threshold,
     variants: rows.length,
     unitsOnHand: rows.reduce((n, r) => n + r.onHand, 0),
-    outOfStock: rows.filter((r) => r.onHand <= 0),
-    lowStock: rows.filter((r) => r.onHand > 0 && r.onHand <= threshold),
+    outOfStockCount: out.length,
+    lowStockCount: low.length,
+    outOfStock: out.slice(0, LIST_LIMIT).map(describe),
+    lowStock: low.slice(0, LIST_LIMIT).map(describe),
   };
 }
