@@ -175,7 +175,7 @@ async function orderPage({ main, user }, id) {
   const canPay = user.perms.includes("payments.update");
   const pay = payment ?? { status: order.paymentStatus, amount: order.grandTotal, method: order.paymentMethod, refundedTotal: 0 };
   const refundable = pay.amount - (pay.refundedTotal ?? 0);
-  const canCollect = canPay && pay.method === "cod" && pay.status === "pending" && ["dispatched", "delivered"].includes(order.status);
+  const canCollect = canPay && pay.method === "cod" && ["pending", "partially_paid"].includes(pay.status) && ["dispatched", "delivered"].includes(order.status);
   const canRefund = canPay && ["collected", "paid", "partially_refunded"].includes(pay.status) && refundable > 0;
   const paymentPanel = `<section class="adm-section adm-card"><h2 class="adm-h2">Payment</h2>
       <p>${esc(METHOD_LABEL[order.paymentMethod] ?? order.paymentMethod)} · ${esc(formatPKR(pay.amount))}<br /><strong>${esc(PAYMENT_LABEL[pay.status] ?? pay.status)}</strong>${pay.refundedTotal ? `<br />Refunded so far: ${esc(formatPKR(pay.refundedTotal))}` : ""}</p>
@@ -188,7 +188,7 @@ async function orderPage({ main, user }, id) {
           <div class="field" data-field="reason"><label for="rf-r">Reason</label><input id="rf-r" name="reason" maxlength="300" /><p class="field-error" hidden></p></div>
           <p class="fine">This records that you gave the money back. The cash handover itself happens outside this system.</p>
           <div class="form-actions"><button class="btn btn--ghost" type="submit"><span>Record refund</span></button></div></form></details>` : ""}
-      ${ptx.length ? `<ul class="adm-feed">${ptx.map((t) => `<li><span><strong>${t.type === "refund" ? "Refund" : "Cash collected"}</strong> ${esc(formatPKR(t.amount))}${t.reason || t.note ? ` — ${esc(t.reason || t.note)}` : ""}<br /><span class="muted">${esc(names[t.actorUid] ?? "Staff member")}</span></span><span class="muted">${esc(formatWhen(t.at))}</span></li>`).join("")}</ul>` : ""}
+      ${ptx.length ? `<ul class="adm-feed">${ptx.map((t) => `<li><span><strong>${t.type === "refund" ? "Refund" : t.type === "reversal" ? "Payment reversed" : t.methodLabel ? `Payment · ${esc(t.methodLabel)}` : "Cash collected"}</strong> ${esc(formatPKR(t.amount))}${t.reason || t.note ? ` — ${esc(t.reason || t.note)}` : ""}<br /><span class="muted">${esc(names[t.actorUid] ?? "Staff member")}</span></span><span class="muted">${esc(formatWhen(t.at))}</span></li>`).join("")}</ul>` : ""}
     </section>`;
   main.innerHTML = `
     <div class="adm-page">

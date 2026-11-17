@@ -85,13 +85,15 @@ export default async function reports({ main, user }) {
   async function showStock() {
     const box = main.querySelector("[data-stock]");
     try {
-      const r = await call("inventoryReport", {});
-      const list = (rows, empty) =>
-        rows.length ? `<ul class="adm-list">${rows.map((x) => `<li><a href="/admin/products/${esc(x.productId)}">${esc(x.productId)}</a> · ${esc(x.variantId)} · ${x.onHand} on hand</li>`).join("")}</ul>` : `<p class="muted">${empty}</p>`;
+      const r = await call("stockSummaryReport", {});
+      const list = (rows, total, empty) =>
+        rows.length
+          ? `<ul class="adm-list">${rows.map((x) => `<li><a href="/admin/products/${esc(x.productId)}">${esc(x.productName)}</a> · ${esc(x.variantLabel || x.variantId)}${x.sku ? ` · <code>${esc(x.sku)}</code>` : ""} · ${x.onHand} on hand</li>`).join("")}</ul>${total > rows.length ? `<p class="muted">Showing the first ${rows.length} of ${total}.</p>` : ""}`
+          : `<p class="muted">${empty}</p>`;
       box.innerHTML = `
-        <div class="adm-stats">${statCard({ label: "Pairs in stock", value: r.unitsOnHand })}${statCard({ label: "Size/colour options", value: r.variants })}${statCard({ label: "Sold out", value: r.outOfStock.length })}${statCard({ label: "Running low", value: r.lowStock.length, note: `at or below ${r.threshold}` })}</div>
-        <h3 class="adm-h3">Sold out</h3>${list(r.outOfStock, "Nothing is sold out.")}
-        <h3 class="adm-h3">Running low</h3>${list(r.lowStock, "Nothing is running low.")}`;
+        <div class="adm-stats">${statCard({ label: "Pairs in stock", value: r.unitsOnHand })}${statCard({ label: "Size/colour options", value: r.variants })}${statCard({ label: "Sold out", value: r.outOfStockCount })}${statCard({ label: "Running low", value: r.lowStockCount, note: `at or below ${r.threshold}` })}</div>
+        <h3 class="adm-h3">Sold out</h3>${list(r.outOfStock, r.outOfStockCount, "Nothing is sold out.")}
+        <h3 class="adm-h3">Running low</h3>${list(r.lowStock, r.lowStockCount, "Nothing is running low.")}`;
     } catch {
       box.innerHTML = errorState();
       box.querySelector("[data-retry]")?.addEventListener("click", showStock);

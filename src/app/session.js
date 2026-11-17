@@ -8,6 +8,8 @@
 import { firebase } from "./firebase.js";
 import { callApi } from "./api.js";
 import { friendlyAuthError } from "./authErrors.js";
+import { expandClaimPerms } from "../../shared/permissions.js";
+import { claimsFromToken } from "./tokenClaims.js";
 import { signUpSchema, signInSchema, profileSchema, savedAddressSchema, email as emailSchema, passwordSchema, fieldErrors } from "../../shared/schemas/index.js";
 
 /** @typedef {{ uid: string, email: string | null, name: string | null, emailVerified: boolean, isStaff: boolean, roles: string[], perms: string[] }} SessionUser */
@@ -28,7 +30,15 @@ export function startSession() {
     onIdTokenChanged(auth, async (user) => {
       if (!user) current = null;
       else {
-        const { claims } = await user.getIdTokenResult();
+        /** @type {Record<string, any>} */
+        let claims;
+        try {
+          claims = (await user.getIdTokenResult()).claims;
+        } catch {
+          // Offline with an expired saved token (it can't be renewed): draw the screen from the saved token's claims so
+          // the till can open. Nothing here grants access — the server checks a fresh token on every request.
+          claims = claimsFromToken(/** @type {any} */ (user).accessToken);
+        }
         current = {
           uid: user.uid,
           email: user.email,
@@ -36,7 +46,7 @@ export function startSession() {
           emailVerified: user.emailVerified,
           isStaff: claims.staff === true,
           roles: Array.isArray(claims.roles) ? claims.roles : [],
-          perms: Array.isArray(claims.perms) ? claims.perms : [],
+          perms: expandClaimPerms(claims.perms),
         };
       }
       resolveReady(current);

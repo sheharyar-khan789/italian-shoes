@@ -4,6 +4,7 @@ import { loadBanners } from "../data/store.js";
 import { queryProducts } from "../lib/shop.js";
 import { esc } from "../lib/format.js";
 import { illustration } from "../ui/illustration.js";
+import { setSeo } from "../lib/seo.js";
 import { grid, bindCardSwatches, catalogGate, previewGrid } from "../ui/components.js";
 
 const CATEGORY_ART = {
@@ -23,6 +24,8 @@ export default async function home(ctx) {
   if (!(await catalogGate(outlet, () => home({ ...ctx, outlet })))) return;
   const { products, categories, home: layout } = getCatalog();
   const s = getSettings();
+  // The owner's search-engine title and description for the home page (settings) — only when they have set one.
+  if (s.seoTitle || s.seoDescription) setSeo({ title: s.seoTitle || s.storeName || document.title, description: s.seoDescription || "", path: "/" });
   document.title = s.seoTitle || s.storeName || "Italian Shoes";
   const show = (key) => layout?.[key] !== false;
   const newest = queryProducts(products, { sort: "newest" }).slice(0, 4);

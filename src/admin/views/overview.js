@@ -4,7 +4,7 @@
  */
 import { esc } from "../../lib/format.js";
 import { statCard, emptyState, formatWhen } from "../ui/kit.js";
-import { countCustomers, countActiveStaff, loadSettings, listActivity } from "../data.js";
+import { countCustomers, countActiveStaff, loadSettings, listActivity, countCategories, countColors, countSizes, countPublishedProducts, countPublishedPages, deliveryIsReady } from "../data.js";
 import { describeActivity } from "./activity.js";
 
 export default async function overview({ main, user }) {
@@ -70,6 +70,26 @@ export default async function overview({ main, user }) {
     return { public: null, private: null };
   });
   if (!alive()) return;
+  // Real checks against the database (counts, one read each). `null` = the check itself failed, never "done".
+  const settle = async (load) => {
+    try {
+      return await load();
+    } catch {
+      return null;
+    }
+  };
+  const [categories, colors, sizes, published, pages, delivery] = await Promise.all([
+    settle(countCategories),
+    settle(countColors),
+    settle(countSizes),
+    settle(countPublishedProducts),
+    can("content.manage") ? settle(countPublishedPages) : undefined,
+    can("shipping.manage") || can("orders.read") ? settle(deliveryIsReady) : undefined,
+  ]);
+  if (!alive()) return;
+  const basics = [["categories", categories], ["colours", colors], ["sizes", sizes]];
+  const basicsKnown = basics.every(([, n]) => n !== null);
+  const missing = basics.filter(([, n]) => n === 0).map(([name]) => name);
   const items = [
     { done: true, text: "Owner account and staff roles are set up" },
     {
@@ -77,11 +97,31 @@ export default async function overview({ main, user }) {
       text: settingsKnown ? "Store details saved (name, contact, address)" : "Store details — couldn't check right now",
       href: can("settings.manage") ? "/admin/settings" : "",
     },
-    { done: false, text: "Add categories, colours and sizes", href: "/admin/categories" },
-    { done: false, text: "Add products with photos, prices and stock", href: "/admin/products" },
-    { done: false, text: "Set delivery methods and charges (customers can't check out without them)", href: "/admin/shipping" },
-    { done: false, text: "Write your About, Shipping, Returns, Privacy and Terms pages", href: "/admin/content" },
-  ];
+    {
+      done: basicsKnown && missing.length === 0,
+      text: basicsKnown ? (missing.length ? `Add categories, colours and sizes (still missing: ${missing.join(", ")})` : "Categories, colours and sizes are added") : "Categories, colours and sizes — couldn't check right now",
+      href: "/admin/categories",
+    },
+    {
+      done: published !== null && published > 0,
+      text: published === null ? "Products — couldn't check right now" : published > 0 ? `${published} product${published === 1 ? " is" : "s are"} published on the website` : "Publish your first product (needs a photo, a price and stock)",
+      href: "/admin/products",
+    },
+    delivery === undefined
+      ? null
+      : {
+          done: delivery === true,
+          text: delivery === null ? "Delivery — couldn't check right now" : delivery ? "Delivery is set up" : "Set a delivery method and charges (customers can't check out without them)",
+          href: "/admin/shipping",
+        },
+    pages === undefined
+      ? null
+      : {
+          done: pages !== null && pages > 0,
+          text: pages === null ? "Information pages — couldn't check right now" : pages > 0 ? `${pages} information page${pages === 1 ? " is" : "s are"} published` : "Write and publish your About, Shipping, Returns, Privacy and Terms pages",
+          href: "/admin/content",
+        },
+  ].filter(Boolean);
   main.querySelector("[data-checklist]").innerHTML = items
     .map(
       (i) => `<li class="adm-check ${i.done ? "is-done" : ""}">

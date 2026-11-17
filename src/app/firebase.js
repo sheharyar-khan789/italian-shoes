@@ -8,7 +8,9 @@
  */
 import { FIREBASE_WEB_CONFIG, EMULATOR_PROJECT_ID, EMULATOR_PORTS } from "./firebase-config.js";
 
-export const usingEmulators = import.meta.env.DEV && import.meta.env.VITE_FIREBASE_TARGET !== "production";
+// "e2e" is a build mode used ONLY by the browser tests (npm run build:e2e): it talks to the local emulators. A normal production
+// build (mode "production") can never reach them, and the live site is never built in the e2e mode.
+export const usingEmulators = (import.meta.env.DEV || import.meta.env.MODE === "e2e") && import.meta.env.VITE_FIREBASE_TARGET !== "production";
 
 /** @type {Promise<{ app: import("firebase/app").FirebaseApp, auth: import("firebase/auth").Auth, db: import("firebase/firestore").Firestore }> | null} */
 let ready = null;

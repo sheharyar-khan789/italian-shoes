@@ -4,7 +4,7 @@
  * server, so the browser can't change a price, a delivery charge or a discount.
  * Payment is Cash on Delivery: the order is placed now and paid when it arrives.
  */
-import { cart, cartSnapshot, reloadCatalog } from "../app/state.js";
+import { cart, cartSnapshot, reloadCatalog, getCatalog } from "../app/state.js";
 import { CITY_SUGGESTIONS } from "../config.js";
 import { esc, formatPKR } from "../lib/format.js";
 import { variantIdOf } from "../lib/cart.js";
@@ -57,6 +57,17 @@ export default async function checkout(ctx) {
   if (home && !draft.city) Object.assign(draft, { name: draft.name || home.name, phone: draft.phone || home.phone, city: home.city, area: home.area, line1: home.line1 });
 
   const F = (name, label, extra = {}) => field({ name, label, value: draft[name], ...extra }, "co");
+
+  // The store hasn't set up delivery yet (the server says so): say it up front instead of after the form is filled in.
+  if (getCatalog().deliveryReady === false) {
+    outlet.innerHTML = `<div class="page page--narrow">${emptyState({
+      title: "Ordering isn't open yet.",
+      text: "This store hasn't finished setting up delivery, so orders can't be placed right now. Your bag is saved — please check back soon.",
+      cta: "Back to bag",
+      href: "/cart",
+    })}</div>`;
+    return;
+  }
 
   outlet.innerHTML = `
   <div class="page checkout">

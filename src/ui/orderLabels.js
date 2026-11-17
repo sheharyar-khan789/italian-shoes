@@ -24,6 +24,7 @@ export const CUSTOMER_STATUS_TEXT = {
 
 export const PAYMENT_LABEL = {
   pending: "Payment due on delivery",
+  partially_paid: "Partly paid",
   collected: "Paid (cash collected)",
   paid: "Paid",
   failed: "Payment failed",
@@ -32,4 +33,4 @@ export const PAYMENT_LABEL = {
   void: "Cancelled — nothing to pay",
 };
 
-export const METHOD_LABEL = { cod: "Cash on Delivery" };
+export const METHOD_LABEL = { cod: "Cash on Delivery", cash: "Cash", bank_transfer: "Bank transfer", jazzcash: "JazzCash", easypaisa: "Easypaisa" };

@@ -63,7 +63,77 @@ export async function listVariantCosts(productId) {
 
 /* ───────── Stock ───────── */
 
-export const listInventory = () => list("inventory");
+/**
+ * One PAGE of inventory documents (25 by default) instead of the whole collection. Filters are done by the
+ * database, so each page costs about one read per row:
+ *   search  by SKU prefix          filter "out" / "low"  by the stored `available` count (needs the warehouse migration for old documents)
+ * @param {{ search?: string, filter?: "" | "low" | "out", threshold?: number | null, after?: any, pageSize?: number }} [opts]
+ * @returns {Promise<{ rows: any[], last: any, hasMore: boolean }>}
+ */
+export async function listInventoryPage({ search = "", filter = "", threshold = null, after = null, pageSize = 25 } = {}) {
+  const { db } = await firebase();
+  const f = await fs();
+  const col = f.collection(db, "inventory");
+  const text = search.trim().toUpperCase();
+  /** @type {any[]} */
+  let parts;
+  if (text) parts = [f.where("sku", ">=", text), f.where("sku", "<=", `${text}`), f.orderBy("sku")];
+  else if (filter === "out") parts = [f.where("available", "<=", 0), f.orderBy("available")];
+  else if (filter === "low" && threshold !== null) parts = [f.where("available", ">", 0), f.where("available", "<=", threshold), f.orderBy("available")];
+  else parts = [f.orderBy(f.documentId())];
+  if (after) parts.push(f.startAfter(after));
+  const snap = await withTimeout(f.getDocsFromServer(f.query(col, ...parts, f.limit(pageSize + 1))));
+  const docs = snap.docs.slice(0, pageSize);
+  return { rows: docs.map((d) => ({ id: d.id, ...d.data() })), last: docs[docs.length - 1] ?? null, hasMore: snap.docs.length > pageSize };
+}
+
+/** Products by id (a page of inventory needs the names of its products). @param {string[]} ids */
+export async function getProductsByIds(ids) {
+  const { db } = await firebase();
+  const f = await fs();
+  const snaps = await withTimeout(Promise.all(ids.map((id) => f.getDocFromServer(f.doc(db, "products", id)))));
+  return Object.fromEntries(snaps.filter((s) => s.exists()).map((s) => [s.id, { id: s.id, ...s.data() }]));
+}
+
+/** @param {string} productId @param {string} variantId */
+export async function getInventoryDoc(productId, variantId) {
+  const { db } = await firebase();
+  const f = await fs();
+  const snap = await withTimeout(f.getDocFromServer(f.doc(db, "inventory", `${productId}__${variantId}`)));
+  return snap.exists() ? { id: snap.id, ...snap.data() } : null;
+}
+
+/* ───────── Warehouses and transfers ───────── */
+
+/** Every warehouse (there are only a few). The default one first. */
+export async function listWarehouses() {
+  const rows = await list("warehouses");
+  return rows.sort((a, b) => Number(Boolean(b.isDefault)) - Number(Boolean(a.isDefault)) || byText(a.name, b.name));
+}
+
+/** The 50 newest transfers. */
+export async function listTransfers() {
+  const { db } = await firebase();
+  const f = await fs();
+  const snap = await withTimeout(f.getDocsFromServer(f.query(f.collection(db, "stockTransfers"), f.orderBy("createdAt", "desc"), f.limit(50))));
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+}
+
+/** The default warehouse as the stock service sees it before its document exists. */
+export const VIRTUAL_DEFAULT_WAREHOUSE = /** @type {Record<string, any>} */ ({ id: "main", name: "Main warehouse", code: "MAIN", description: "Holds all the stock that existed before warehouses were added.", address: "", isActive: true, isDefault: true, sellsOnline: true, virtual: true });
+
+/** Run "recalculate online stock" page by page until it is finished. @param {(processed: number) => void} [onProgress] */
+export async function rebuildOnlineStock(onProgress = () => {}) {
+  let cursor = null;
+  let processed = 0;
+  do {
+    const r = await call("rebuildOnlineStock", { cursor });
+    processed += r.processed;
+    onProgress(processed);
+    cursor = r.nextCursor;
+  } while (cursor);
+  return processed;
+}
 
 /** @returns {Promise<any[]>} */
 export async function listMovements(inventoryId, max = 20) {
@@ -75,6 +145,16 @@ export async function listMovements(inventoryId, max = 20) {
 }
 
 /* ───────── Photos ───────── */
+
+/** False only when the server says the Vercel Blob store isn't connected (any other answer = assume it is). */
+export async function photoStorageConnected() {
+  try {
+    const res = await fetch("/api/healthCheck", { cache: "no-store" });
+    return (await res.json()).photoStorage !== "not-connected";
+  } catch {
+    return true;
+  }
+}
 
 /**
  * Upload one original photo straight to Vercel Blob (with a one-time token from /api/blobUpload), then ask
@@ -101,3 +181,27 @@ export async function uploadProductImage(productId, file, _uid, onProgress) {
     return { status: "rejected", reason: /** @type {Error} */ (error).message };
   }
 }
+
+/**
+ * Upload a picture straight to Vercel Blob (one-time token from /api/blobUpload), then ask the server to check it, shrink it
+ * and make it the store logo. Resolves to { status: "done", logoUrl } or { status: "rejected", reason }.
+ * @param {File} file
+ */
+export async function uploadStoreLogo(file) {
+  const { auth } = await firebase();
+  const user = auth.currentUser;
+  const idToken = await user?.getIdToken();
+  if (!user || !idToken) return { status: "rejected", reason: "Please sign in again." };
+  if (file.size > 2 * 1024 * 1024) return { status: "rejected", reason: "The logo is larger than 2 MB." };
+  const { upload } = await import("@vercel/blob/client");
+  try {
+    const blob = await upload(`logo/${user.uid}/${crypto.randomUUID().replace(/-/g, "")}`, file, { access: "public", contentType: file.type, handleUploadUrl: "/api/blobUpload", headers: { Authorization: `Bearer ${idToken}` } });
+    const r = await callApi("setStoreLogo", { url: blob.url });
+    return { status: "done", logoUrl: r.logoUrl };
+  } catch (error) {
+    return { status: "rejected", reason: /** @type {Error} */ (error).message };
+  }
+}
+
+/** Remove the store logo. */
+export const removeStoreLogo = () => callApi("removeStoreLogo", {});

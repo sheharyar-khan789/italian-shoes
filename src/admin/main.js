@@ -12,6 +12,13 @@ import { reloadWhenUpdated } from "../app/updateReload.js";
 
 reloadWhenUpdated();
 
+// Offline shell: lets the till reload while the internet is down (see scripts/sw.template.js). Production builds only.
+if ("serviceWorker" in navigator && import.meta.env.PROD) {
+  const register = () => navigator.serviceWorker.register("/sw.js").catch(() => {});
+  if (document.readyState === "complete") register();
+  else window.addEventListener("load", register);
+}
+
 const root = /** @type {HTMLElement} */ (document.getElementById("admin"));
 const brand = `<a class="brand" href="/" aria-label="Back to the store"><span class="brand__mark" aria-hidden="true"></span><span class="brand__word">Italian Shoes</span></a>`;
 

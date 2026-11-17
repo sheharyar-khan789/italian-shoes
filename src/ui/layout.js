@@ -284,6 +284,7 @@ export function applyStoreConfig() {
     s.address && `<p>${esc(s.address)}</p>`,
     s.hours && `<p>${esc(s.hours)}</p>`,
     s.instagram && `<a href="${esc(s.instagram)}" target="_blank" rel="noopener noreferrer">Instagram</a>`,
+    s.facebook && `<a href="${esc(s.facebook)}" target="_blank" rel="noopener noreferrer">Facebook</a>`,
   ].filter(Boolean);
   contact.insertAdjacentHTML("beforeend", rows.length ? rows.join("") : `<a href="/contact">Contact us</a>`);
 

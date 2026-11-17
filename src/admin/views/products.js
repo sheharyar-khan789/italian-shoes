@@ -5,7 +5,7 @@
 import { esc } from "../../lib/format.js";
 import { field, showResult, busy } from "../../ui/forms.js";
 import { toast, confirmDialog, errorState, dataTable, emptyState } from "../ui/kit.js";
-import { call, listProducts, getProduct, listVariants, listVariantCosts, listCategories, listBrands, listColors, listSizes, uploadProductImage } from "../catalogData.js";
+import { call, listProducts, getProduct, listVariants, listVariantCosts, listCategories, listBrands, listColors, listSizes, uploadProductImage, photoStorageConnected } from "../catalogData.js";
 import { imageUrl } from "../../app/firebase.js";
 import { saveProductInput, saveVariantInput, createVariantsInput, IMAGE_UPLOAD, fieldErrors } from "../../../shared/schemas/index.js";
 import { formatPKR } from "../../../shared/money.js";
@@ -357,7 +357,9 @@ async function editor({ main, user, navigate }, id) {
         state.textContent = result.status === "done" ? "added ✓" : `not added — ${result.reason}`;
         if (result.status === "done") await refreshProduct();
       } catch {
-        state.textContent = "not added — the upload failed. Check your connection and try again.";
+        state.textContent = (await photoStorageConnected())
+          ? "not added — the upload failed. Check your connection and try again."
+          : "not added — photo storage isn't connected yet. The owner must connect a Vercel Blob store to this project (see docs/VERCEL-SETUP.md, step 3).";
       }
     }
   });

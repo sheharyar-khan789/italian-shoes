@@ -37,7 +37,8 @@ function assemble(raw) {
     .sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name));
   const products = raw.products.map((p) => toProduct(p.id, p, { colors, sizes })).filter((p) => p.slug && p.colors.length);
   const colorFamilies = [...colors.entries()].map(([id, c]) => ({ id, name: c.name, hex: c.hex }));
-  return { settings: raw.settings ?? {}, categories, products, colorFamilies, home: raw.home ?? null };
+  // deliveryReady: only an explicit `false` from the server means "delivery isn't set up" (absent = unknown).
+  return { settings: raw.settings ?? {}, categories, products, colorFamilies, home: raw.home ?? null, deliveryReady: raw.deliveryReady };
 }
 
 /** Fast path: the store's own server (cached at the edge, so it also saves database reads). */

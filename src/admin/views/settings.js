@@ -51,6 +51,13 @@ export default async function settingsView({ main }) {
           ? `<div class="notice" role="note"><strong>Not saved yet.</strong> We've filled in the details you already gave us (from the store's Instagram). Check them, add anything missing, then save.</div>`
           : ""
       }
+      <section class="adm-card" data-logo>
+        <h2 class="adm-h2">Store logo</h2>
+        <p class="muted">Shown on receipts, invoices and printed reports. JPEG, PNG or WebP, up to 2 MB; it is shrunk to fit 600 × 600.</p>
+        <p data-logo-preview>${saved?.public?.logoUrl ? `<img src="${esc(saved.public.logoUrl)}" alt="Current store logo" style="max-height:96px;max-width:240px" />` : '<span class="muted">No logo yet.</span>'}</p>
+        <p><input type="file" accept="image/jpeg,image/png,image/webp" data-logo-file aria-label="Choose a logo picture" /> <button type="button" class="btn btn--ghost" data-logo-remove ${saved?.public?.logoUrl ? "" : "hidden"}>Remove logo</button></p>
+        <p class="fine" data-logo-note role="status"></p>
+      </section>
       <form class="adm-form" novalidate data-form>
         <p class="form-alert" role="alert" tabindex="-1" data-form-alert hidden></p>
 
@@ -74,7 +81,6 @@ export default async function settingsView({ main }) {
           <legend>Website</legend>
           ${field({ name: "public.announcement", label: "Announcement bar", required: false, maxlength: 140, hint: "Short line above the header. Leave empty to hide it.", value: v(pub, "announcement") }, "set")}
           ${toggle("public.isOpen", "Store is open for orders", pub.isOpen ?? true)}
-          ${toggle("public.registrationOpen", "Customers can create accounts", pub.registrationOpen ?? true)}
           ${field({ name: "public.seoTitle", label: "Search engine title", required: false, maxlength: 70, value: v(pub, "seoTitle") }, "set")}
           ${field({ name: "public.seoDescription", label: "Search engine description", required: false, maxlength: 160, textarea: true, value: v(pub, "seoDescription") }, "set")}
         </fieldset>
@@ -93,7 +99,7 @@ export default async function settingsView({ main }) {
           ${field({ name: "private.taxRatePercent", label: "Tax rate (%)", type: "number", inputmode: "decimal", required: false, value: v(priv, "taxRatePercent") || "0" }, "set")}
         </fieldset>
 
-        <p class="fine">Currency: Pakistani Rupee (PKR). Logo upload arrives with product images in Phase 5.</p>
+        <p class="fine">Currency: Pakistani Rupee (PKR).</p>
         <div class="adm-form__actions">
           <button type="submit" class="btn btn--primary"><span>Save settings</span></button>
         </div>
@@ -101,6 +107,28 @@ export default async function settingsView({ main }) {
     </div>`;
 
   const form = /** @type {HTMLFormElement} */ (main.querySelector("[data-form]"));
+  const logoNote = /** @type {HTMLElement} */ (main.querySelector("[data-logo-note]"));
+  const logoPreview = /** @type {HTMLElement} */ (main.querySelector("[data-logo-preview]"));
+  const logoRemove = /** @type {HTMLElement} */ (main.querySelector("[data-logo-remove]"));
+  const showLogo = (url) => {
+    logoPreview.innerHTML = url ? `<img src="${esc(url)}" alt="Current store logo" style="max-height:96px;max-width:240px" />` : '<span class="muted">No logo yet.</span>';
+    logoRemove.hidden = !url;
+  };
+  main.querySelector("[data-logo-file]")?.addEventListener("change", async (ev) => {
+    const input = /** @type {HTMLInputElement} */ (ev.target);
+    const file = input.files?.[0];
+    if (!file) return;
+    logoNote.textContent = "Uploading…";
+    const { uploadStoreLogo } = await import("../catalogData.js");
+    const r = await uploadStoreLogo(file);
+    input.value = "";
+    if (r.status === "done") { showLogo(r.logoUrl); logoNote.textContent = "Logo saved."; toast("Logo saved"); }
+    else logoNote.textContent = r.reason || "The logo couldn't be saved.";
+  });
+  logoRemove.addEventListener("click", async () => {
+    const { removeStoreLogo } = await import("../catalogData.js");
+    try { await removeStoreLogo(); showLogo(""); logoNote.textContent = "Logo removed."; } catch (e) { logoNote.textContent = /** @type {Error} */ (e).message || "Couldn't remove the logo."; }
+  });
 
   const read = () => {
     const out = { public: {}, private: {} };

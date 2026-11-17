@@ -35,6 +35,25 @@ async function countOf(path, ...constraints) {
 export const countCustomers = () => countOf("users");
 export const countActiveStaff = () => countOf("staff", (f) => f.where("status", "==", "active"));
 
+/* ───────── Store-setup checks (Overview checklist) ───────── */
+// Each is ONE aggregation count (billed as a single read), so the checklist costs about 7 reads in total.
+
+export const countCategories = () => countOf("categories");
+export const countColors = () => countOf("colors");
+export const countSizes = () => countOf("sizes");
+export const countPublishedProducts = () => countOf("products", (f) => f.where("status", "==", "published"));
+export const countPublishedPages = () => countOf("pages", (f) => f.where("isPublished", "==", true));
+
+/** True when at least one ACTIVE delivery method has at least one rate (same rule the checkout uses). */
+export async function deliveryIsReady() {
+  const { db } = await firebase();
+  const f = await fs();
+  const methods = await withTimeout(f.getDocsFromServer(f.query(f.collection(db, "shippingMethods"), f.where("isActive", "==", true), f.limit(10))));
+  if (methods.empty) return false;
+  const rates = await withTimeout(f.getDocsFromServer(f.query(f.collection(db, "shippingRates"), f.where("methodId", "in", methods.docs.map((d) => d.id)), f.limit(1))));
+  return !rates.empty;
+}
+
 /* ───────── Settings ───────── */
 
 export async function loadSettings() {
