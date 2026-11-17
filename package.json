@@ -5,13 +5,20 @@
   "type": "module",
   "scripts": {
     "dev": "vite --port 5181 --strictPort",
-    "build": "node functions/scripts/sync-shared.mjs && vite build",
+    "build": "node functions/scripts/sync-shared.mjs && vite build && node scripts/make-sw.mjs",
+    "build:e2e": "node functions/scripts/sync-shared.mjs && vite build --mode e2e --outDir dist-e2e && node scripts/make-sw.mjs dist-e2e",
+    "e2e": "node scripts/emulators.mjs exec \"node scripts/e2e.mjs\"",
     "preview": "vite preview",
     "pretest": "node functions/scripts/sync-shared.mjs",
     "test": "node --test \"tests/unit/*.test.js\"",
     "test:emulator": "node scripts/emulators.mjs exec \"node --test --test-concurrency=1 tests/emulator/*.test.js\"",
     "emulators": "node scripts/emulators.mjs start",
     "migrate": "node functions/scripts/migrate.mjs",
+    "migrate:warehouses": "node functions/scripts/migrate-warehouses.mjs",
+    "migrate:sales": "node functions/scripts/migrate-sales.mjs",
+    "migrate:accounting": "node functions/scripts/migrate-accounting.mjs",
+    "backup": "node scripts/backup-firestore.mjs",
+    "restore": "node scripts/restore-firestore.mjs",
     "lint": "eslint .",
     "typecheck": "node functions/scripts/sync-shared.mjs && tsc -p tsconfig.json",
     "secrets": "node scripts/check-secrets.mjs",
@@ -32,6 +39,7 @@
     "eslint": "10.13.0",
     "firebase-tools": "15.34.0",
     "globals": "17.13.0",
+    "playwright-core": "1.65.1",
     "typescript": "6.0.3",
     "vite": "^6.3.5"
   },
@@ -42,6 +50,9 @@
     "@firebase/firestore": {
       "@grpc/grpc-js": "1.13.7"
     },
-    "jwks-rsa": "3.2.2"
+    "jwks-rsa": "3.2.2",
+    "@vercel/cli-config": {
+      "zod": "4.6.7"
+    }
   }
 }

@@ -23,7 +23,7 @@ service cloud.firestore {
       return signedIn()
         && request.auth.token.staff == true
         && request.auth.token.perms is list
-        && permission in request.auth.token.perms;
+        && (permission in request.auth.token.perms || '*' in request.auth.token.perms);
     }
     function isStaff() {
       return signedIn() && request.auth.token.staff == true;
@@ -170,6 +170,253 @@ service cloud.firestore {
       allow read: if can('inventory.read');
       allow write: if false;
     }
+    // Stock locations and transfers between them (written only by services/warehouses.js and transfers.js).
+    match /warehouses/{id} {
+      allow read: if can('inventory.read') || can('warehouses.manage');
+      allow write: if false;
+    }
+    match /stockTransfers/{id} {
+      allow read: if can('inventory.read');
+      allow write: if false;
+    }
+    // Suppliers and purchasing (written only by the services in functions/services: suppliers, purchaseOrders, goodsReceipts, supplierPayments, purchaseReturns).
+    match /suppliers/{id} {
+      allow read: if can('purchases.read');
+      allow write: if false;
+    }
+    match /supplierLedger/{id} {
+      allow read: if can('purchases.read');
+      allow write: if false;
+    }
+    match /purchaseOrders/{id} {
+      allow read: if can('purchases.read');
+      allow write: if false;
+    }
+    match /goodsReceipts/{id} {
+      allow read: if can('purchases.read');
+      allow write: if false;
+    }
+    match /supplierPayments/{id} {
+      allow read: if can('purchases.read');
+      allow write: if false;
+    }
+    match /purchaseReturns/{id} {
+      allow read: if can('purchases.read');
+      allow write: if false;
+    }
+    match /variantCostHistory/{id} {
+      allow read: if can('costs.read');
+      allow write: if false;
+    }
+    // Unified sales (written only by services/sales.js, from placeOrder and the payment services). The cost snapshot is separate: costs.read.
+    match /sales/{id} {
+      allow read: if can('sales.read');
+      allow write: if false;
+    }
+    match /saleCosts/{id} {
+      allow read: if can('costs.read');
+      allow write: if false;
+    }
+    // Accounting (written only by services/accounting.js, inside the transaction of the event it records). Posted journals are never editable.
+    match /accountingConfig/{id} {
+      allow read: if can('accounting.read');
+      allow write: if false;
+    }
+    match /accounts/{id} {
+      allow read: if can('accounting.read');
+      allow write: if false;
+    }
+    match /journalEntries/{id} {
+      allow read: if can('accounting.read');
+      allow write: if false;
+    }
+    match /ledgerEntries/{id} {
+      allow read: if can('accounting.read');
+      allow write: if false;
+    }
+    match /accountMonths/{id} {
+      allow read: if can('accounting.read');
+      allow write: if false;
+    }
+    match /accountDays/{id} {
+      allow read: if can('accounting.read');
+      allow write: if false;
+    }
+    match /partyBalances/{id} {
+      allow read: if can('accounting.read');
+      allow write: if false;
+    }
+    match /accountingExceptions/{id} {
+      allow read: if can('accounting.read');
+      allow write: if false;
+    }
+    // Point of sale registers (written only by services/pos.js). Cashiers use the POS endpoints, not these collections.
+    match /registerSessions/{id} {
+      allow read: if can('pos.sessions.read');
+      allow write: if false;
+    }
+    match /registerMovements/{id} {
+      allow read: if can('pos.sessions.read');
+      allow write: if false;
+    }
+    // Income, expenses, transfers, cash counts (written only by services/finance.js)
+    match /financeEntries/{id} {
+      allow read: if can('finance.read');
+      allow write: if false;
+    }
+    match /financeCategories/{id} {
+      allow read: if can('finance.read');
+      allow write: if false;
+    }
+    match /recurringExpenses/{id} {
+      allow read: if can('finance.read');
+      allow write: if false;
+    }
+    match /cashCounts/{id} {
+      allow read: if can('finance.read');
+      allow write: if false;
+    }
+    // CRM, loyalty and customer discounts (written only by the CRM services). Customer contact details need crm.read.
+    match /crmCustomers/{id} {
+      allow read: if can('crm.read');
+      allow write: if false;
+    }
+    // Analytics: caches, saved reports, schedules and generated summaries are read and written only by the server (permission-checked endpoints).
+    // HR: employees, pay, attendance, leave, payroll. Server-only: every read goes through an endpoint that filters by the caller's permissions (salary and CNIC are never readable from a browser).
+    match /employees/{id} {
+      allow read, write: if false;
+    }
+    match /employeeSecure/{id} {
+      allow read, write: if false;
+    }
+    match /employeeDocs/{id} {
+      allow read, write: if false;
+    }
+    match /employeeHistory/{id} {
+      allow read, write: if false;
+    }
+    match /employeeLinks/{id} {
+      allow read, write: if false;
+    }
+    match /employeeKeys/{id} {
+      allow read, write: if false;
+    }
+    match /hrSettings/{id} {
+      allow read, write: if false;
+    }
+    match /shifts/{id} {
+      allow read, write: if false;
+    }
+    match /holidays/{id} {
+      allow read, write: if false;
+    }
+    match /attendance/{id} {
+      allow read, write: if false;
+    }
+    match /leaveRequests/{id} {
+      allow read, write: if false;
+    }
+    match /leaveBalances/{id} {
+      allow read, write: if false;
+    }
+    match /payrollRuns/{id} {
+      allow read, write: if false;
+    }
+    match /payslips/{id} {
+      allow read, write: if false;
+    }
+    match /payrollAdjustments/{id} {
+      allow read, write: if false;
+    }
+    match /employeeAdvances/{id} {
+      allow read, write: if false;
+    }
+    match /commissionRules/{id} {
+      allow read, write: if false;
+    }
+    match /analyticsCache/{id} {
+      allow read, write: if false;
+    }
+    match /reportConfigs/{id} {
+      allow read, write: if false;
+    }
+    match /reportSchedules/{id} {
+      allow read, write: if false;
+    }
+    match /reportRuns/{id} {
+      allow read, write: if false;
+    }
+    match /crmKeys/{id} {
+      allow read, write: if false;
+    }
+    match /crmNotes/{id} {
+      allow read: if can('crm.read');
+      allow write: if false;
+    }
+    match /crmSettings/{id} {
+      allow read: if can('crm.read');
+      allow write: if false;
+    }
+    match /crmDiscounts/{id} {
+      allow read: if can('crm.read');
+      allow write: if false;
+    }
+    match /crmDiscountUses/{id} {
+      allow read: if can('crm.read');
+      allow write: if false;
+    }
+    match /loyaltyAccounts/{id} {
+      allow read: if can('crm.read');
+      allow write: if false;
+    }
+    match /loyaltyLots/{id} {
+      allow read: if can('crm.read');
+      allow write: if false;
+    }
+    match /loyaltyTransactions/{id} {
+      allow read: if can('crm.read');
+      allow write: if false;
+    }
+    // Advanced inventory (written only by the inventory services)
+    match /stockAdjustments/{id} {
+      allow read: if can('inventory.read');
+      allow write: if false;
+    }
+    match /stockCounts/{id} {
+      allow read: if can('inventory.read');
+      allow write: if false;
+    }
+    match /stockCountLocks/{id} {
+      allow read, write: if false;
+    }
+    match /stockPolicies/{id} {
+      allow read: if can('inventory.read');
+      allow write: if false;
+    }
+    match /barcodes/{id} {
+      allow read: if can('inventory.read');
+      allow write: if false;
+    }
+    // Supplier refunds and manual balance adjustments (written only by services/supplierAdjustments.js)
+    match /supplierRefunds/{id} {
+      allow read: if can('purchases.read');
+      allow write: if false;
+    }
+    match /supplierAdjustments/{id} {
+      allow read: if can('purchases.read');
+      allow write: if false;
+    }
+    match /posOfflineSyncs/{id} {
+      allow read: if can('pos.sessions.read');
+      allow write: if false;
+    }
+    match /registerLocks/{id} {
+      allow read, write: if false;
+    }
+    // Pre-built public catalog (services/catalogSnapshot.js): read and written by the server only.
+    match /catalogSnapshot/{doc} {
+      allow read, write: if false;
+    }
 
     // ── Orders (created and changed only by the server: services/orders.js) ──
     // A customer reads only their own orders; list queries must filter userId == their uid.
@@ -191,6 +438,11 @@ service cloud.firestore {
       }
       // Internal staff notes are never visible to customers.
       match /internalNotes/{id} {
+        allow read: if can('orders.read');
+        allow write: if false;
+      }
+      // Which warehouse each pair was taken from (so a cancellation puts it back): staff only.
+      match /stock/{doc} {
         allow read: if can('orders.read');
         allow write: if false;
       }

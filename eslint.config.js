@@ -2,7 +2,7 @@ import js from "@eslint/js";
 import globals from "globals";
 
 export default [
-  { ignores: ["dist/**", "node_modules/**", "functions/node_modules/**", "functions/shared/**", ".firebase/**"] },
+  { ignores: ["dist/**", "dist-e2e/**", "e2e-output/**", "node_modules/**", "functions/node_modules/**", "functions/shared/**", ".firebase/**"] },
   js.configs.recommended,
   {
     files: ["**/*.js", "**/*.mjs"],
@@ -20,7 +20,9 @@ export default [
   { files: ["shared/**/*.js"], languageOptions: { globals: { ...globals.browser, ...globals.node } } },
   // Server, scripts and tests
   {
-    files: ["functions/**/*.js", "functions/**/*.mjs", "scripts/**/*.mjs", "tests/**/*.js", "*.config.js"],
+    files: ["functions/**/*.js", "functions/**/*.mjs", "scripts/**/*.mjs", "tests/**/*.js", "tests/**/*.mjs", "*.config.js"],
     languageOptions: { globals: globals.node },
   },
+  // Browser tests run page code inside the browser (page.evaluate / waitForFunction), so both sets of globals apply.
+  { files: ["tests/e2e/**/*.js", "tests/e2e/**/*.mjs"], languageOptions: { globals: { ...globals.node, ...globals.browser } } },
 ];

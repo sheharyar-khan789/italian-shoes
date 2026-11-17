@@ -39,6 +39,21 @@ const adminRoute = {
 const apiDev = {
   name: "api-dev",
   configureServer(server) {
+    mountApi(server, (p) => server.ssrLoadModule(p));
+  },
+};
+
+/** Same /api for the e2e preview (built bundle): the handler is imported straight from Node. */
+const apiPreview = {
+  name: "api-preview",
+  configurePreviewServer(server) {
+    mountApi(server, (p) => import(new URL(`.${p}`, import.meta.url).href));
+  },
+};
+
+/** @param {{ middlewares: any }} server @param {(path: string) => Promise<any>} load */
+function mountApi(server, load) {
+  {
     if (!process.env.FIREBASE_PRIVATE_KEY) {
       process.env.FIRESTORE_EMULATOR_HOST ??= "127.0.0.1:8080";
       process.env.FIREBASE_AUTH_EMULATOR_HOST ??= "127.0.0.1:9099";
@@ -56,7 +71,7 @@ const apiDev = {
       const name = decodeURIComponent((req.url ?? "").replace(/^\//, "").split("?")[0]);
       if (name === "blobUpload") {
         // Photo-upload tokens: the same function Vercel runs, with a small adapter for Vite's response object.
-        const { default: blobUpload } = await server.ssrLoadModule("/api/blobUpload.js");
+        const { default: blobUpload } = await load("/api/blobUpload.js");
         /** @type {any} */
         const shim = res;
         shim.status = (code) => ((res.statusCode = code), shim);
@@ -64,19 +79,22 @@ const apiDev = {
         /** @type {any} */ (req).body = body;
         return blobUpload(req, shim);
       }
-      const { handleApi } = await server.ssrLoadModule("/functions/handler.js");
+      const { handleApi } = await load("/functions/handler.js");
       const out = await handleApi({ method: req.method ?? "GET", name, headers: req.headers, body });
       res.statusCode = out.status;
       res.setHeader("Content-Type", "application/json");
       for (const [k, v] of Object.entries(out.headers ?? {})) res.setHeader(k, v);
       res.end(JSON.stringify(out.body));
     });
-  },
-};
+  }
+}
 
-export default defineConfig({
-  plugins: [adminRoute, apiDev],
-  preview: { port: 5182, strictPort: true, headers: securityHeaders },
+/** The browser tests talk to the local emulators, which the production policy (rightly) does not allow. Used only in mode "e2e". */
+const e2eHeaders = { ...securityHeaders, "Content-Security-Policy": securityHeaders["Content-Security-Policy"].replace("connect-src 'self'", "connect-src 'self' http://127.0.0.1:* http://localhost:* ws://127.0.0.1:* ws://localhost:*") };
+
+export default defineConfig(({ mode }) => ({
+  plugins: mode === "e2e" ? [adminRoute, apiDev, apiPreview] : [adminRoute, apiDev],
+  preview: { port: 5182, strictPort: true, headers: mode === "e2e" ? e2eHeaders : securityHeaders },
   build: {
     // No source maps in production: they would publish readable source for the whole app.
     sourcemap: false,
@@ -84,4 +102,4 @@ export default defineConfig({
       input: { main: "index.html", admin: "admin.html" },
     },
   },
-});
+}));
