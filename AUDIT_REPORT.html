@@ -1,0 +1,183 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Italian Shoes Audit Report</title><style>body{font-family:system-ui,sans-serif;max-width:980px;margin:2rem auto;padding:0 1rem;line-height:1.5;color:#1a1a1a}table{border-collapse:collapse;margin:1rem 0;width:100%}td{border:1px solid #ccc;padding:4px 8px;vertical-align:top;font-size:.9rem}code{background:#f2f2f2;padding:1px 4px}blockquote{border-left:4px solid #999;margin:1rem 0;padding:.2rem 1rem;color:#444}</style></head><body><h1>Italian Shoes Management System — Production Readiness Audit</h1>
+<p><b>Audit type:</b> audit only. No application code, schema, setting or data was changed; nothing was committed, pushed or deployed. Only the report files listed at the end were created.</p>
+<p><b>Date of audit:</b> 2026-11-17 · <b>Repository:</b> <code>Footwear Hero</code> (remote <code>sheharyar-khan789/italian-shoes</code>, branch <code>main</code>)</p>
+<p><b>What was executed:</b> read-only inspection (git, grep, registry enumeration, <code>npm audit</code>), <code>eslint</code>, <code>tsc</code>, the production build, the 185 unit tests, the Firestore emulator test suite (see <code>TEST_RESULTS.md</code>), and manual browser checks against <b>throw-away emulator data only</b> (no production access of any kind).</p>
+<blockquote><b>Evidence rule used throughout:</b> a feature is called *verified* only where an automated test or an observed run exercised it. A screen that exists is not counted as working. Everything I could not verify is listed in section 9 of this summary and in every section where it matters.</blockquote>
+<h2>1. Executive Summary</h2>
+<p>The server side is strong and unusually well tested: 231 authenticated, rate-limited, schema-validated endpoints; deny-by-default Firestore rules with server-only writes; a double-entry accounting engine whose reports reconcile with the books in tests; idempotent money operations; and hand-checked payroll and analytics figures. There is <b>no fake data in the production code paths</b>: no demo users, no hard-coded dashboard numbers, no mocked APIs, no simulated payments.</p>
+<p>The system is <b>not yet ready to run a real business</b>, for reasons that are mostly about *delivery and operations*, not about missing code:</p>
+<p>1. <b>Almost everything built after the online shop is not in version control</b> — 173 untracked and 44 modified files. Only 15 of 49 services, 16 of 73 admin screens and 11 of 23 emulator test files are committed. The accounting engine, POS, finance, purchasing, advanced inventory, CRM, analytics and HR exist only in one OneDrive folder. CI has never run on them and production cannot contain them.</p>
+<p>2. <b>A live service-account private key file is on disk</b> in that same OneDrive folder (git-ignored and never committed, but rotation was never confirmed).</p>
+<p>3. <b>Production dependencies carry 4 high vulnerabilities</b> (including <code>zod</code>, which validates every request) — the repository's own CI audit step would fail.</p>
+<p>4. <b>No backups, monitoring or restore plan exist.</b></p>
+<p>5. <b>No browser end-to-end tests exist</b>; the 73 admin screens were only exercised by hand.</p>
+<p>6. <b>Functional gaps:</b> no returns/exchanges for POS sales; offline POS cannot reload while offline; recurring expenses and report schedules are not automatic; a few settings are saved but not connected.</p>
+<p>7. A <b>real defect found in this audit:</b> the Owner's sign-in claim had outgrown Firebase's 1,000-character limit (fixed in the working copy only), and 25 endpoints skip the live "account disabled / sessions revoked" check.</p>
+<p><b>Verdict: PARTIALLY READY</b> (details in section 16 of this report and the scoring below).</p>
+<h2>2. Overall Website Completion Percentage — <b>Implemented ≈ 83 %</b></h2>
+<h2>3. Verified Working Percentage — <b>≈ 68 %</b></h2>
+<h2>4. Production Readiness Percentage — <b>≈ 46 %</b></h2>
+<table>
+<tr><td>Dimension</td><td>Weight</td><td>Implemented</td><td>Verified working</td><td>Production-ready</td></tr>
+<tr><td>Frontend</td><td>10</td><td>85</td><td>40</td><td>30</td></tr>
+<tr><td>Backend</td><td>12</td><td>90</td><td>85</td><td>55</td></tr>
+<tr><td>Database integration</td><td>10</td><td>95</td><td>85</td><td>55</td></tr>
+<tr><td>Real functionality (no dummy)</td><td>8</td><td>93</td><td>70</td><td>60</td></tr>
+<tr><td>Business workflows</td><td>20</td><td>70</td><td>55</td><td>35</td></tr>
+<tr><td>Accounting integration</td><td>10</td><td>90</td><td>85</td><td>60</td></tr>
+<tr><td>Security</td><td>15</td><td>80</td><td>65</td><td>40</td></tr>
+<tr><td>Automated testing</td><td>8</td><td>72</td><td>70</td><td>45</td></tr>
+<tr><td>Reporting</td><td>7</td><td>90</td><td>70</td><td>55</td></tr>
+<tr><td><b>Weighted overall</b></td><td>100</td><td><b>83.3</b></td><td><b>68.1</b></td><td><b>46.4</b></td></tr>
+</table>
+<p>*Method.* <b>Implemented</b> = code and screens exist and are connected. <b>Verified working</b> = an automated test or an observed run exercised it (unverified features never score 100). <b>Production-ready</b> = verified *and* committed, deployable, safe, operable (backups, monitoring), with no known critical gap. Business workflows carry the largest weight because the goal is a working business. The scores are judgement calls on the evidence in this report, not a measurement; the three columns are kept apart on purpose — a high implemented figure with a much lower production-ready figure is exactly the situation here.</p>
+<h2>5. Complete Technology Architecture</h2>
+<table>
+<tr><td>Layer</td><td>What is actually used (evidence)</td></tr>
+<tr><td>Website</td><td>Vanilla JavaScript, Vite 6 multi-page build: <code>index.html</code> (shop) and <code>admin.html</code> (admin). ~36,000 lines of source in <code>src/ functions/ shared/ api/</code>; 9,850 lines of tests. No UI framework. Three.js for a placeholder 3D hero.</td></tr>
+<tr><td>Server</td><td>Vercel serverless: <code>api/call.js</code> (all endpoints, <code>/api/&lt;name&gt;</code> → <code>handleApi</code>) and <code>api/blobUpload.js</code>. Business logic in <code>functions/services/*</code> (49 files), endpoints in <code>functions/callable/*</code> (231 endpoints), registry <code>functions/registry.js</code>. Hobby-plan friendly (2 functions).</td></tr>
+<tr><td>Auth</td><td>Firebase Authentication (email/password); staff roles → custom claims <code>{staff, roles, perms}</code> set by <code>services/staff.js</code>; owner claim by <code>OWNER_EMAIL</code>. **Owner perms are now the wildcard claim <code>"*"</code>** (uncommitted change).</td></tr>
+<tr><td>Database</td><td>Cloud Firestore (project <code>italianshoes</code>, region documented as asia-south1). 102 rule blocks, 46 composite indexes in the repository (+5 newer ones uncommitted).</td></tr>
+<tr><td>Files</td><td>Vercel Blob (public objects) — <b>there is no Firebase Storage and no <code>storage.rules</code></b> although <code>docs/ARCHITECTURE.md</code> mentions one. Images processed with <code>sharp</code>.</td></tr>
+<tr><td>Shared code</td><td><code>shared/*</code> (money in integer paisa, permissions, schemas with Zod 4, accounting/HR/CRM/analytics rules, <code>xlsx.js</code> writer) copied to <code>functions/shared</code> by <code>functions/scripts/sync-shared.mjs</code> (generated, git-ignored).</td></tr>
+<tr><td>Hosting/config</td><td><code>vercel.json</code> (SPA rewrites, CSP and security headers), <code>firebase.json</code> (hosting headers only), <code>.firebaserc</code> project <code>italianshoes</code>.</td></tr>
+<tr><td>CI</td><td><code>.github/workflows/ci.yml</code>: secret scan, lint, typecheck, unit tests, build, <code>npm audit --audit-level=high</code>, and an emulator job. Dependabot weekly.</td></tr>
+<tr><td>Background jobs</td><td><b>None.</b> No cron, scheduler or queue (<code>vercel.json</code> has no crons).</td></tr>
+<tr><td>External services</td><td>Firebase Auth/Firestore, Vercel Blob. WhatsApp is only a <code>wa.me</code> link. No payment gateway, SMS, email provider, analytics or error tracker.</td></tr>
+</table>
+<h2>6. Complete Module Inventory</h2>
+<p><b>Storefront (10 view files):</b> home, shop, product, cart, checkout, search, account (profile, addresses, orders, wishlist), info pages, 404.</p>
+<p><b>Admin (70 registered modules in <code>src/admin/modules.js</code>, all loaded and reachable; none marked "soon"):</b> Overview · Products · Categories &amp; Sizes · Orders · Sales · Sales Report · Payments · Shipping · Customers · Coupons · Reviews · Analytics &amp; Reports · Website Content · Inventory (Stock levels, Adjustments, Counts, Reports, Dashboard, Warehouses, Transfers) · Purchasing (Suppliers, POs, Goods Received, Supplier Payments, Returns, Ledger, Dashboard, Reports) · POS (Point of Sale, Offline Sync, Register Sessions, POS Reports) · Finance (Dashboard, Income, Expenses, Cash &amp; Bank, Reports, Settings) · Accounting (Overview, Chart, Journals, Ledger, Trial Balance, Receivables, Payables, Cash &amp; Bank, Reports, Opening Balances) · CRM (Dashboard, Customers, Reports, Settings) · Business Dashboard / Report Builder / Financial Analytics / Report Inbox · HR (Dashboard, Employees, Attendance, Leave, Payroll, Advances &amp; Loans, Reports, Settings, My HR) · Staff &amp; Roles · Notifications · Activity Log · Store Settings.</p>
+<p><b>Endpoints by file:</b> hr 57 · inventory 21 · finance 20 · accounting 20 · crm 19 · pos 16 · purchasing 14 · engage 12 · analytics 12 · catalog 11 · warehouses 8 · payments 5 · orders 5 · sales 3 · coupons 2 · plus staff/settings (total 231).</p>
+<p><b>Permissions:</b> 71, grouped in 60 buckets; roles: owner, inventory_manager, order_manager, content_manager (seeded), cashier/pos_manager (created on demand), hr_manager/payroll_accountant/employee (created on demand).</p>
+<p><b>Unused / abandoned code:</b> a scan found <b>no</b> orphaned admin view, service or shared module (every file is imported somewhere). Placeholder-only code: the 3D sneaker model and sample-picture cards on the storefront (section 9).</p>
+<h2>7. Complete Feature Inventory &amp; 8. Feature-by-Feature Verification</h2>
+<p>The full table (66 features, each with evidence, how it was verified and the gap) is in <b><code>FEATURE_VERIFICATION.csv</code></b>. Summary of verdicts:</p>
+<table>
+<tr><td>Verdict</td><td>Count</td></tr>
+<tr><td>Verified (automated and/or observed)</td><td>41</td></tr>
+<tr><td>Verified at server level only (no browser run)</td><td>12</td></tr>
+<tr><td>Partially verified / partial</td><td>9</td></tr>
+<tr><td>Not implemented / missing</td><td>4 (online gateways, POS returns/exchanges, bank reconciliation/closing, scheduled jobs/backups)</td></tr>
+</table>
+<h2>9. Real vs Dummy Functionality Analysis</h2>
+<p>I searched every production file for TODO/FIXME/MOCK/DUMMY/SAMPLE/PLACEHOLDER/HARDCODED/DEMO, <code>console.log</code>, <code>setTimeout</code> fake operations, static responses, hard-coded credentials/IDs, simulated payments and empty handlers.</p>
+<table>
+<tr><td>Class</td><td>Result</td></tr>
+<tr><td>Test-only dummy data</td><td><code>tests/**</code> use fake tokens, fake product names and <code>demo-italianshoes</code>. Correctly confined to tests.</td></tr>
+<tr><td>Development-only</td><td><code>src/app/firebase-config.js</code> — the emulator is chosen only when <code>import.meta.env.DEV</code> is true; <b>production builds never connect to the emulator</b> (<code>src/app/firebase.js:11</code>).</td></tr>
+<tr><td>Production-accessible dummy data</td><td><b>Low:</b> <code>src/ui/components.js:161-177</code> shows "Sample picture / Coming soon" cards and <code>src/scene.js:5</code> a placeholder 3D sneaker, only while the catalogue is empty (both labelled).</td></tr>
+<tr><td>Hard-coded business logic</td><td>Starting values only, all editable: <code>CRM_DEFAULTS</code>, <code>HR_DEFAULTS</code> (leave 14/8/10 days), alert thresholds. Fixed assumptions: Pakistan time (+5, no DST), default 6-day week when an employee has no shift (<code>functions/services/hrAttendance.js</code>, <code>hrPayroll.js</code>).</td></tr>
+<tr><td>Mocked integrations</td><td>None. Payment gateways are explicitly not connected (<code>shared/paymentGateways.js</code>) and the UI does not pretend otherwise.</td></tr>
+<tr><td>Fake functionality</td><td>None found: no hard-coded dashboard statistic, no static chart data, no simulated success. Charts are drawn only from data the server returns (<code>src/admin/ui/charts.js</code>).</td></tr>
+<tr><td>Real functionality</td><td>Everything else.</td></tr>
+<tr><td>Settings that look functional but are not</td><td><code>registrationOpen</code> (never enforced), <code>facebook</code> (never shown), store logo (no way to set; code reads <code>logoUrl</code>). See B-05, B-06, S-05.</td></tr>
+<tr><td>Stale statements</td><td><code>functions/services/salesReports.js:86</code> ("the POS is not built"), <code>src/admin/views/settings.js:96</code> ("Logo upload arrives…in Phase 5"), <code>docs/ARCHITECTURE.md</code> (storage.rules, "services planned"), <code>docs/GO-LIVE.md</code> (frozen at Phase 10, recommends Blaze).</td></tr>
+</table>
+<h2>10. Demo Account and Credential Findings</h2>
+<ul>
+<li><b>No demo user, test user, hard-coded administrator or bypass exists in application code.</b> Admin access comes only from the real Firebase user whose verified email matches the server variable <code>OWNER_EMAIL</code> (<code>functions/services/staff.js</code> <code>claimOwner</code>), once.</li>
+<li><b>Real credential on disk:</b> <code>italianshoes-firebase-adminsdk-fbsvc-d8d1b2abaf.json</code> (service account, project <code>italianshoes</code>). Git-ignored (<code>.gitignore:8</code>), never in git history (empty <code>git log --all -- file</code>), but present in an OneDrive-synced folder; <code>docs/GO-LIVE.md</code> says it must be rotated — no evidence it was. <b>S-01, High.</b></li>
+<li>The Firebase web API key and app id in <code>src/app/firebase-config.js</code> are public by design; restriction to your domains cannot be verified here.</li>
+<li>Test credentials used for the browser checks live outside the repository (session scratch space) and only in the emulator.</li>
+</ul>
+<h2>11. Hardcoded Data Findings</h2>
+<p><code>src/config.js</code> <code>STORE_DEFAULTS</code> (name, phone 0342-7530608, address, Instagram) — offered as defaults in the settings form only until the owner saves (Low). <code>CITY_SUGGESTIONS</code> — checkout suggestions, not data. No hard-coded balances, customers, suppliers, employees, products or transactions in production code.</p>
+<h2>12. Non-Functional Buttons and Pages</h2>
+<p>A heuristic scan of all 264 distinct <code>data-*</code> button hooks in <code>src/<b></code> found </b>0 dead buttons** (3 flagged hooks were handled elsewhere); no <code>href="#"</code>, no empty click handlers, no "coming soon" admin modules. Observed-in-browser behaviour: sign-in, CRM, POS, analytics (29 reports), HR happy path all worked. *Limits:* this is a static heuristic plus partial manual runs, not a click-through of every control. Missing capabilities (not dead buttons): POS return/exchange (B-01), logo upload (B-05).</p>
+<h2>13. Missing Backend Integrations</h2>
+<p>Online payment gateways (B-13); a scheduler for recurring expenses, loyalty expiry and report schedules (B-03, B-04); backup/monitoring services (C-02); bank-statement reconciliation (B-14); messaging provider (B-12); statutory payroll deductions (B-11). All 231 endpoints that exist have frontends or are internal; no orphaned endpoint was found.</p>
+<h2>14. Database and Data Integrity Audit</h2>
+<ul>
+<li>Rules: deny-by-default, writes server-only everywhere (102 blocks); employee/pay/attendance/payroll, CRM keys, analytics caches have <code>read, write: if false</code>. Verified by 33 rule tests including these collections and the <code>"*"</code> claim.</li>
+<li>Integrity design: deterministic document ids for idempotency (<code>earn__{saleId}</code>, <code>salarypay__…</code>, <code>attendance/{emp__date}</code>); counters inside transactions; unique keys for phone/email/CNIC; reads-before-writes transactions; money as integer paisa.</li>
+<li>Risks: unbounded-read caps (B-09); composite indexes must be deployed before the new screens work (C-01); analytics cache stamps rely on <code>updatedAt</code> (a direct edit without it is not noticed — services always set it).</li>
+</ul>
+<h2>15. Accounting Accuracy Audit</h2>
+<p>Verified by tests (accounting 21 + unit 10, analytics reconciliation, HR, purchasing): every automatic journal balances; ids derive from the source so a retry cannot double-post; posted journals are never edited (reversal journals only); an accounting failure on an HR change rolls the whole change back; Executive/Analytics revenue, COGS, gross/net profit, cash, bank, receivable and payable <b>equal</b> the accounting engine's own P&amp;L/balances; monthly profit adds up to the P&amp;L; balance sheet balances; trial balance debits = credits; cash flow reconciles; payroll accrual <code>Dr Salaries = Cr Payable + Advances + Deductions</code> always balances; paying, voiding, reversing and re-approving leave all accounts at the expected balances. <b>Caveat:</b> inventory *book* value and *physical valuation* differ until opening balances are posted (B-10); I observed −Rs 34,200 vs Rs 174,600 on seeded data. No bank reconciliation or period close exists (B-14).</p>
+<h2>16. Inventory Accuracy Audit</h2>
+<p>Stock is changed only inside transactions per warehouse (<code>functions/services/inventory.js</code>); tests cover no negative stock, simultaneous last-pair sales (exactly one succeeds), concurrent receiving never over-receives, offline sale never takes stock below zero or from another warehouse, transfers/adjustments/counts with approval. Not verified: behaviour under real multi-user load on the live service (T-02).</p>
+<h2>17. End-to-End Workflow Results</h2>
+<p>*"Server-verified" = proven by an automated emulator test that runs the whole chain through the real endpoints; "browser" = I observed it in the browser on emulator data. No workflow was run on the live site.*</p>
+<table>
+<tr><td>#</td><td>Workflow</td><td>Result</td></tr>
+<tr><td>1</td><td>Login → auth → dashboard → permissions</td><td><b>Works</b> (server + browser). Revocation gap on 25 endpoints (S-03). Live Firebase settings unverified.</td></tr>
+<tr><td>2</td><td>Product → variants → stock → availability → POS sale → stock deduction</td><td><b>Works</b> server-verified; browser: product seeded, POS search/add/checkout observed. Product *creation form* not run in this audit.</td></tr>
+<tr><td>3</td><td>Supplier → PO → receiving → stock ↑ → payable → payment → journals</td><td><b>Works</b> server-verified (purchasing 26 tests). Browser not run in this audit.</td></tr>
+<tr><td>4</td><td>Customer → POS purchase → payment → receipt → history → loyalty</td><td><b>Works</b> (server + browser: sale with discount, 135 points earned, profile showed purchase). Receipt printed to a dialog only; printer not tested.</td></tr>
+<tr><td>5</td><td>Sale → part payment → balance → customer payment → ledger</td><td><b>Works</b> server-verified (POS part payment, <code>posRecordPayment</code>, receivable ageing reconciles). Browser not run.</td></tr>
+<tr><td>6</td><td>Expense → cash/bank → journal → financial dashboard</td><td><b>Works</b> server-verified (finance tests). Browser not run in this audit.</td></tr>
+<tr><td>7</td><td>Stock count → discrepancy → approval → adjustment → accounting</td><td><b>Works</b> server-verified (inventoryAdvanced tests). Browser not run.</td></tr>
+<tr><td>8</td><td>Offline sale → local persistence → reconnect → sync → stock → journal</td><td><b>Partially verified:</b> server sync, idempotency, conflicts and accounting verified; the queue/engine logic by unit tests with a fake store. <b>Not run in a real browser offline cycle.</b> Cannot reload offline (no service worker).</td></tr>
+<tr><td>9</td><td>Employee → attendance → leave → payroll → payslip → payment → journal</td><td><b>Works</b> (server hand-checked figures + browser happy path: bulk attendance, leave approval, generate, approve, pay, payslip). Advances/commission verified server-only.</td></tr>
+<tr><td>10</td><td>Transactions → reports → dashboard → statement reconciliation</td><td><b>Works</b> server-verified: executive dashboard, 29 reports and statements reconcile to the journals in tests; reports rendered in a browser.</td></tr>
+<tr><td>—</td><td>POS return / exchange</td><td><b>Not implemented.</b></td></tr>
+</table>
+<h2>18. Security Audit</h2>
+<p>Full list with evidence in <b><code>SECURITY_FINDINGS.csv</code></b>. Highlights:</p>
+<ul>
+<li><b>Critical:</b> none confirmed.</li>
+<li><b>High:</b> S-01 service-account key on disk (rotation unverified); S-02 production dependency vulnerabilities (zod DoS and @vercel/blob chain); S-04 CNIC scans and receipts stored as public blobs.</li>
+<li><b>Medium:</b> S-03 revoked/disabled staff keep access up to an hour on 25 endpoints; S-05 <code>registrationOpen</code> not enforced; S-06 console hardening/App Check unverified; S-07 Owner claim over the Firebase size limit (fixed only in the uncommitted working copy).</li>
+<li><b>Low/Info:</b> S-08 export is an audit control not a data control; S-09 CSP <code>unsafe-inline</code> styles; S-10/S-11 rules and endpoint hygiene verified.</li>
+<li>Checked and found good: deny-by-default rules, server-only writes, all endpoints authenticated + rate-limited + validated, error messages hide internals, CSV/Excel formula injection neutralised, <code>script-src 'self'</code>, HTML escaping (no unescaped user field found by pattern scan; not a proof), idempotency on money operations, session revocation on permission endpoints, file upload type/size/path rules, audit log writes for sensitive actions.</li>
+<li>Not tested (by instruction): any active exploitation, penetration testing, brute-force or load against a live system; CSRF/IDOR beyond code and rule/test review (all calls use bearer tokens, not cookies, so classic CSRF does not apply).</li>
+</ul>
+<h2>19. Performance and Scalability Audit</h2>
+<p>Reads are bounded (5,000 sales per report, 2,000 customers, 150 payroll employees, 40 salary payments per action) with clear errors beyond (B-09). Reports run one bounded query per source; lists page; analytics has a stamp-invalidated cache; Firestore <code>getAll</code> batches avoid N+1. The <code>build</code> emits a &gt;500 kB chunk warning. A 1,200-sale analytics run completed within seconds in the emulator. <b>No load test was run, so no concurrent-user claim is made</b> (T-02). The emulator suite itself became very slow during this audit (individual tests 25–55 s versus 1–13 s earlier) — likely local machine/emulator load, not evidence about production.</p>
+<h2>20. Automated Test Results</h2>
+<p>See <b><code>TEST_RESULTS.md</code></b>. In short: lint clean; typecheck clean; build succeeds (chunk-size warning); unit tests 185/185; emulator suite — see that file for the final state of the run.</p>
+<h2>21. Phase 1–13 Completion Analysis</h2>
+<p>Full table in <b><code>PHASE_COMPLETION.csv</code></b>. Summary (implemented / verified / production-ready %):</p>
+<table>
+<tr><td>Phase</td><td>Area</td><td>Impl.</td><td>Verified</td><td>Ready</td></tr>
+<tr><td>1</td><td>Foundation &amp; architecture</td><td>90</td><td>80</td><td>60</td></tr>
+<tr><td>2</td><td>Authentication &amp; users</td><td>85</td><td>70</td><td>50</td></tr>
+<tr><td>3</td><td>Product &amp; inventory foundation</td><td>90</td><td>75</td><td>60</td></tr>
+<tr><td>4</td><td>Sales &amp; business operations</td><td>85</td><td>75</td><td>55</td></tr>
+<tr><td>5</td><td>Double-entry accounting</td><td>90</td><td>85</td><td>60</td></tr>
+<tr><td>6</td><td>Physical shop POS</td><td>85</td><td>75</td><td>50</td></tr>
+<tr><td>7</td><td>Offline POS &amp; sync</td><td>75</td><td>60</td><td>35</td></tr>
+<tr><td>8</td><td>Income, expenses, cash</td><td>85</td><td>75</td><td>55</td></tr>
+<tr><td>9</td><td>Purchase &amp; supplier</td><td>90</td><td>80</td><td>60</td></tr>
+<tr><td>10</td><td>Advanced inventory</td><td>85</td><td>75</td><td>55</td></tr>
+<tr><td>11</td><td>CRM &amp; loyalty</td><td>85</td><td>80</td><td>55</td></tr>
+<tr><td>12</td><td>Analytics &amp; BI</td><td>80</td><td>75</td><td>50</td></tr>
+<tr><td>13</td><td>HR &amp; payroll</td><td>80</td><td>72</td><td>45</td></tr>
+</table>
+<p>Phases 1–4 were established from the repository (the committed code and <code>docs/PHASE-1-AUDIT-AND-PLAN.md</code>), not from the phase titles.</p>
+<h2>22. Missing Features</h2>
+<p>POS returns/exchanges (B-01) · online payment gateways (B-13) · bank reconciliation and period closing (B-14) · automatic scheduler (B-03/B-04) · backups/monitoring (C-02) · offline app shell (B-02) · logo upload (B-05) · camera barcode scanning · messaging provider (B-12) · statutory payroll deductions and leave proration (B-11) · browser E2E tests (T-01).</p>
+<h2>23. Broken Features</h2>
+<p>No feature was found *broken* in the paths exercised. Settings that do nothing: <code>registrationOpen</code>, <code>facebook</code> (S-05, B-06). Reports/exports that cannot show a logo (B-05).</p>
+<h2>24. Critical Bugs / Blockers (P0)</h2>
+<p>O-01 uncommitted work · S-01 key on disk · S-02 vulnerable dependencies · C-01 rules/indexes/code deploy ordering · (S-07 must travel with the deploy).</p>
+<h2>25. High-Priority Issues (P1)</h2>
+<p>S-03 live-revocation gap · S-04 public sensitive documents · S-06 console/App Check · S-07 owner claim · B-01 POS returns · C-02 backups/monitoring · T-01 no browser E2E.</p>
+<h2>26. Medium- and Low-Priority Issues (P2/P3)</h2>
+<p>S-05, S-08, S-09, B-02 … B-14, T-02, T-03, C-03, C-04 — see <code>AUDIT_FINDINGS.csv</code> for every row with evidence, affected files, dependencies, fix, complexity and the verification test.</p>
+<h2>27. Production Configuration Issues</h2>
+<p>Rules and indexes (46 + 5 new) are not deployed with the uncommitted code (C-01); Firebase console items pending per <code>docs/GO-LIVE.md</code> (password policy, enumeration protection, authorised domains, API-key restriction, App Check); <code>OWNER_EMAIL</code>, <code>FIREBASE_*</code> and <code>BLOB_READ_WRITE_TOKEN</code> Vercel variables not verifiable; project folder inside OneDrive (C-03).</p>
+<h2>28. Backup and Recovery Readiness</h2>
+<p><b>Not ready.</b> No Firestore export schedule, no point-in-time recovery plan, no restore drill, no documented procedure (searched all docs). The source code itself is not safely backed up (O-01). Rollback: <code>docs/GO-LIVE.md</code> has a rollback section for the site; data rollback does not exist.</p>
+<h2>29. Complete Remaining Work List</h2>
+<p>Every row of <code>AUDIT_FINDINGS.csv</code> (33 items) plus the checklist in <code>PRODUCTION_READINESS_CHECKLIST.md</code>.</p>
+<h2>30. Recommended Fixing Roadmap</h2>
+<p><b>P0 — before anything else (order matters)</b></p>
+<p>1. <b>O-01</b> Commit the work on a branch in logical groups, push, let CI run (nothing else is safe until the code exists off this machine).</p>
+<p>2. <b>S-01</b> Revoke the service-account key; create a new one only in Vercel; delete the local file; move the repo out of OneDrive (C-03).</p>
+<p>3. <b>S-02</b> Upgrade <code>zod</code> and <code>@vercel/blob</code> (and refresh transitive deps) → re-run all tests → CI green. *Depends on 1.*</p>
+<p>4. <b>S-07 + C-01</b> Plan one deployment: deploy rules + indexes first (wait for "Enabled"), then code including the owner-claim change; re-save the Owner roles. *Depends on 1–3.*</p>
+<p>5. <b>C-02</b> Start Firestore exports and uptime/error alerts; document and rehearse a restore.</p>
+<p><b>P1</b></p>
+<p>6. <b>S-03</b> Run the live-session check for every staff call. 7. <b>S-04</b> Make sensitive documents private (server-mediated download) and delete blobs with their records. 8. <b>S-06/C-04</b> Complete the Firebase/Google console checklist with evidence. 9. <b>T-01</b> Add browser E2E for sign-in, product → POS sale → stock, purchase receipt, expense, payroll — in CI. 10. <b>B-01</b> Build POS returns/exchanges. 11. <b>B-10</b> Add "post opening balances" as a mandatory go-live step.</p>
+<p><b>P2</b></p>
+<p>12. <b>B-03/B-04</b> One scheduler for recurring expenses, loyalty expiry, report schedules. 13. <b>B-02</b> Offline app shell + real offline test. 14. <b>S-05</b> Enforce or remove <code>registrationOpen</code>. 15. <b>T-02</b> Load test against a staging project. 16. <b>B-05</b> Logo upload. 17. <b>B-13</b> Payment gateway if online payment is wanted. 18. <b>B-09</b> Aggregates/counters before the data grows.</p>
+<p><b>P3</b></p>
+<p>19. <b>B-11/B-12/B-14</b> HR statutory deductions, messaging provider, bank reconciliation/closing. 20. <b>B-06/B-07/B-08/T-03/S-08/S-09</b> wording, docs, placeholders, date-independent tests.</p>
+<h2>What could not be independently verified</h2>
+<p>The live Firebase project (console settings, password policy, enumeration protection, App Check, API-key restrictions, indexes actually enabled, deployed rules); the live Vercel deployment and its environment variables; real email delivery (verification/reset); real device barcode scanners and printers; a true offline browser cycle; behaviour under real concurrency and load; browser behaviour for most admin screens and the whole customer checkout; time-zone behaviour in production; the content of production data (none was accessed); whether the exposed service-account key was already rotated.</p>
+<h2>Verdict — <b>PARTIALLY READY</b></h2>
+<p>Core business logic is correct and well tested at the server level, and nothing in the production code is fake. But it cannot be called ready for real customers and employees until the P0 items are done — the code is not in version control, a live credential is on disk, known high-severity dependency issues are unpatched, there are no backups or monitoring, and the browser-level workflows have not been verified by automation. Reaching <b>CONDITIONALLY READY</b> needs P0 + the P1 security items + a browser walkthrough of the ten workflows on a staging project.</p>
+<h3>Files produced by this audit</h3>
+<p><code>AUDIT_REPORT.md</code> · <code>AUDIT_REPORT.html</code> · <code>AUDIT_FINDINGS.csv</code> · <code>FEATURE_VERIFICATION.csv</code> · <code>SECURITY_FINDINGS.csv</code> · <code>PHASE_COMPLETION.csv</code> · <code>TEST_RESULTS.md</code> · <code>PRODUCTION_READINESS_CHECKLIST.md</code></p></body></html>

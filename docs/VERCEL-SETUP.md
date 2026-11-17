@@ -24,7 +24,9 @@ Vercel → project **italian-shoes** → **Settings → Environment Variables**.
 Do **not** add anything starting with `VITE_` for these: such names are published to every visitor.
 
 ### 3. Create the photo store (Vercel Blob)
-Vercel → project → **Storage** → **Create** → **Blob** → name it `italian-shoes-photos` → **Connect to project** (Production + Preview). This adds `BLOB_READ_WRITE_TOKEN` automatically.
+Vercel → project → **Storage** → **Create** → **Blob** → name it `italian-shoes-photos` → **Connect to project** (Production + Preview). This adds `BLOB_READ_WRITE_TOKEN` automatically. **Do not copy that token anywhere** (not into code, chat or Git): Vercel stores it and injects it at runtime.
+Then check **Settings → Environment Variables**: `BLOB_READ_WRITE_TOKEN` must be listed for Production, and you must **Redeploy** (step 6) before it takes effect.
+How to confirm it worked: open `/api/healthCheck`. It must show `"photoStorage":"connected"`. If it shows `"not-connected"`, the token isn't in the running deployment yet (not connected, or not redeployed). Until then the admin shows "photo storage isn't connected yet" when a photo is added.
 
 ### 4. Firestore rules and indexes (your computer)
 ```bash
@@ -52,7 +54,8 @@ Environment variables only apply to **new** deployments. Vercel → **Deployment
 ## If something fails
 - **"Please sign in" on every action:** your session is old: sign out and in.
 - **"Something went wrong on our side":** Vercel → project → **Logs**. The line names the endpoint; secrets are never logged.
-- **Photo upload fails immediately:** the Blob store isn't connected (step 3) or you haven't redeployed.
+- **Photo upload fails immediately:** the Blob store isn't connected (step 3) or you haven't redeployed. `/api/healthCheck` shows `"photoStorage":"not-connected"` in that case.
+- **Checkout says "Ordering isn't open yet":** no active delivery method with a charge exists. Admin → Shipping → add a method, then a rate (city charge, or "All other cities" for one flat charge). The real charges are the owner's to decide.
 - **Anything on `/api/...` says "unreachable" or 500 right after you added variables:** redeploy (step 6).
 
 ## Limits of the free plans (good to know)

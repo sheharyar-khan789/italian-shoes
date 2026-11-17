@@ -1,0 +1,67 @@
+Area,Feature,Implemented,Server-side verified (automated),Browser/UI verified,Verdict,Evidence,Gap or note
+Authentication,Sign in / sign out (Firebase Auth),Yes,Rules + staff tests,Yes (manual: sign-in used throughout this audit on the emulator),Verified (emulator),src/app/session.js; tests/emulator/staff.test.js,Live Firebase project not inspected
+Authentication,Customer registration + profile,Yes,rules.test.js (users create/update rules),Not executed in this audit,Partially verified,src/app/session.js; firestore.rules users block,registrationOpen toggle not enforced (S-05)
+Authentication,Password reset + email verification,Yes (Firebase SDK calls),No (Firebase service),No,Unverified,src/app/session.js:81,119,132,Needs live Firebase email delivery check
+Authentication,Staff roles and permissions (71 permissions),Yes,staff.test.js 6 + shared-rules unit,Yes (admin menu follows permissions),Verified,shared/permissions.js; functions/services/staff.js,Owner claim wildcard fix not committed (S-07)
+Authentication,Live session revocation,Partly,staff tests cover revoke for permission-bearing endpoints,No,Partial,functions/lib/callable.js:73-79,25 endpoints skip the live check (S-03)
+Authentication,Owner first-time claim,Yes,staff.test.js,Not executed here,Verified (server),functions/services/staff.js claimOwner,Depends on OWNER_EMAIL env
+Dashboard,Admin overview widgets,Yes,reports tests,Opened (no data),Partially verified,src/admin/views/overview.js,Says plainly when there is no data (no sample charts)
+Dashboard,Executive business dashboard (Owner only),Yes,analytics.test.js reconciliation 19 tests,Yes (browser smoke on seeded emulator data),Verified,functions/services/analytics.js analyticsExecutive,Revenue/COGS/profit/cash/AR/AP equal the accounting engine in tests
+Dashboard,Financial dashboard,Yes,finance.test.js 14,Not executed in this audit,Partially verified,functions/services/financeReports.js,
+Dashboard,CRM / HR / purchase / inventory dashboards,Yes,crm 15 / hr 21 / purchasing / inventory tests,CRM + HR + analytics opened in browser,Partially verified,src/admin/views/crmDashboard.js hrDashboard.js,
+Catalogue,Products CRUD + archive,Yes,catalog.test.js 7,Not executed here,Verified (server),functions/services/products.js,
+Catalogue,Variants (colour x size) + pricing + sale price,Yes,catalog/orders tests,Not executed here,Verified (server),functions/services/products.js,
+Catalogue,Categories/brands/colours/sizes,Yes,catalog.test.js,Not executed here,Verified (server),functions/services/catalog.js,
+Catalogue,Product images (upload + WebP processing),Yes,images.test.js 5,Not executed here (needs Blob store),Partially verified,functions/services/images.js,Vercel Blob not connected in tests
+Catalogue,Barcodes (EAN-13 generation/assign/lookup),Yes,inventoryAdvanced.test.js; inventory unit,Not executed here,Verified (server),functions/services/inventoryInsights.js,No camera scanning (keyboard scanner input only)
+Inventory,Per-warehouse stock + movements + reservations,Yes,warehouses.test.js 21; orders.test.js,Opened in browser earlier,Verified (server),functions/services/inventory.js,
+Inventory,No overselling under concurrency,Yes,orders/pos/offline tests with simultaneous calls,No,Verified (service level),tests/emulator/orders.test.js; posOffline.test.js,No HTTP load test (T-02)
+Inventory,Stock adjustments + approvals,Yes,inventoryAdvanced.test.js 13,Not executed here,Verified (server),functions/services/stockAdjustments.js,
+Inventory,Physical stock counts + approval + apply,Yes,inventoryAdvanced.test.js,Not executed here,Verified (server),functions/services/stockCounts.js,
+Inventory,Transfers between warehouses,Yes,warehouses.test.js,Not executed here,Verified (server),functions/services/transfers.js,
+Inventory,Low stock / reorder / overstock alerts,Yes,inventoryAdvanced.test.js,Not executed here,Verified (server),functions/services/inventoryInsights.js,
+Inventory,Valuation (weighted average) vs books,Yes,accounting + inventory tests,Seen in analytics smoke,Verified,functions/services/inventoryInsights.js,Differs until opening balances posted (B-10)
+Online sales,Cart + checkout (COD) + order numbers,Yes,orders.test.js 11,Not executed here (needs customer account),Verified (server),functions/services/orders.js,
+Online sales,Coupons,Yes,coupons.test.js 7,Not executed here,Verified (server),functions/services/coupons.js,
+Online sales,Reviews + moderation,Yes,engage.test.js 5,Not executed here,Verified (server),functions/services/reviews.js,
+Online sales,Shipping rates + shipments + CSV export,Yes,orders/engage tests,Not executed here,Verified (server),functions/services/shipping.js,
+Online sales,Online payment gateways,No,n/a,n/a,Not implemented (documented),shared/paymentGateways.js,COD only (B-13)
+POS,Register open/close + cash in/out,Yes,pos.test.js 19,Yes (browser: register opened),Verified,functions/services/pos.js,
+POS,Product search + cart + qty + price override,Yes,pos.test.js,Yes (browser: search and add),Verified,src/admin/views/pos.js,
+POS,Discounts (manual + customer discount + points),Yes,pos + crm tests,Yes (customer discount previewed and applied),Verified,functions/services/pos.js; crmInsights.js,
+POS,Tax calculation,Yes,pos.test.js,Not executed here,Verified (server),functions/services/pos.js,
+POS,Cash / bank / wallet / split / part payments,Yes,pos.test.js; sales.test.js,Partly (cash),Verified (server),functions/services/salePayments.js,
+POS,Receipts (thermal 58/80 mm + A4 print),Yes,Not automated,Dialog opened,Partially verified,src/ui/posReceipt.js,Printer output not tested
+POS,Barcode scanning,Partly,SKU/barcode lookup tested,No,Partial,functions/services/pos.js,Keyboard-wedge scanners only
+POS,Returns / refunds / exchanges for POS sales,No,n/a,n/a,Missing,grep 'exchange' = none; no POS restock code,B-01
+POS,Sales history + cancellation,Yes,sales.test.js 14,Not executed here,Verified (server),functions/services/sales.js,Walk-in cancellation path not confirmed
+Offline POS,IndexedDB catalogue + queued cash sales,Yes,offlineSync unit 15; posOffline 9,Not executed here in a real browser,Partially verified,src/lib/offlineStore.js; offlineSync.js,
+Offline POS,Idempotent sync / conflicts / accounting,Yes,posOffline.test.js,No,Verified (server),functions/services/pos.js syncOfflineSale,
+Offline POS,Reload while offline,No,n/a,n/a,Not supported,docs/OFFLINE-POS.md:25,No service worker (B-02)
+Purchasing,Suppliers + opening balance + ledger,Yes,purchasing.test.js 14; Phase 9 12,Not executed here,Verified (server),functions/services/suppliers.js,
+Purchasing,Purchase orders + partial receiving + GRN,Yes,purchasing tests,Not executed here,Verified (server),functions/services/purchaseOrders.js goodsReceipts.js,
+Purchasing,Purchase returns + refunds + adjustments + payments + advances,Yes,purchasing tests,Not executed here,Verified (server),functions/services/purchaseReturns.js supplierPayments.js,
+Accounting,Chart of accounts + defaults,Yes,accounting.test.js 21,Opened in browser earlier,Verified,functions/services/accounting.js,Now 30 default accounts
+Accounting,Journals (balanced) + reversal + immutability,Yes,accounting tests,No,Verified (server),functions/services/accounting.js,
+Accounting,Trial balance / P&L / balance sheet / cash flow / ledger,Yes,accounting + analytics reconciliation tests,Shown in analytics smoke,Verified,functions/services/accountingReports.js,
+Accounting,Reconciliation checks,Yes,accounting tests,No,Verified (server),accountingReports.js reconcileStage,
+Accounting,Bank statement reconciliation / period closing,No,n/a,n/a,Missing,B-14,
+Finance,Income / expenses / transfers / cash counts,Yes,finance.test.js 14,Not executed here,Verified (server),functions/services/finance.js,
+Finance,Recurring expenses,Partly,tested,No,Partial,finance.js runRecurring,Manual trigger only (B-03)
+CRM,Customers + duplicate prevention + notes + complaints,Yes,crm.test.js 15,Yes (browser: create customer, complaint),Verified,functions/services/crm.js,
+CRM,Loyalty earn/redeem/expire/reverse (idempotent),Yes,crm tests,Yes (135 points earned in a real sale),Verified,functions/services/loyalty.js,
+CRM,Customer discounts + tiers + segments,Yes,crm tests,Yes (discount applied at POS),Verified,crmDiscounts.js,
+CRM,Customer messaging,Partly,n/a,wa.me link opened,Partial,src/admin/views/crm.js,No provider; consent respected
+Analytics,29 reports + charts + filters,Yes,analytics.test.js 19 + unit 12,Yes (all 29 rendered in browser),Verified,functions/services/analytics.js,
+Analytics,Exports CSV / Excel (.xlsx) / print,Yes,unit tests validate the xlsx ZIP and CSV/print output,Buttons clicked; audit calls 200,Verified (generation); printing not tested on a printer,shared/xlsx.js reportFormat.js,
+Analytics,Saved reports + schedules,Yes,analytics.test.js,Yes (browser),Verified,analyticsSchedules.js,Lazy generation only (B-04)
+HR,Employees + CNIC/salary privacy,Yes,hr.test.js 21,Yes (browser: list/profile),Verified,functions/services/hr.js,Documents are public blobs (S-04)
+HR,Attendance (one per day) + corrections + shifts + holidays,Yes,hr.test.js,Yes (bulk mark; calendar),Verified,hrAttendance.js,
+HR,Leave + balances + approval,Yes,hr.test.js,Yes (apply + approve),Verified,hrAttendance.js,
+HR,Payroll generate/approve/pay/reverse + accounting,Yes,hr.test.js (hand-checked figures),Yes (generate-approve-pay-payslip),Verified,hrPayroll.js,
+HR,Advances/loans + commission,Yes,hr.test.js,Not executed in browser,Verified (server),hrPayroll.js,
+HR,Self-service (own records only),Yes,hr.test.js,Not executed in browser,Verified (server),callable/hr.js,
+Settings,Store settings (name/phone/hours/tax/prefix/thresholds),Yes,settings.test.js 4,Not executed here,Verified (server),functions/services/settings.js,registrationOpen/facebook/logo not connected (S-05 B-05 B-06)
+Settings,Roles & staff management,Yes,staff.test.js,Not executed here,Verified (server),functions/services/staff.js,
+Operations,Scheduled jobs,No,n/a,n/a,None exist,vercel.json has no crons,B-03 B-04
+Operations,Backups / monitoring,No,n/a,n/a,None exist,C-02,
