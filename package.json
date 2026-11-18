@@ -40,7 +40,7 @@
     "firebase-tools": "15.34.0",
     "globals": "17.13.0",
     "playwright-core": "1.65.1",
-    "typescript": "6.0.3",
+    "typescript": "7.0.2",
     "vite": "^6.3.5"
   },
   "engines": {
