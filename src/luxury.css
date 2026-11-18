@@ -1,8 +1,8 @@
 /* ═════════ Premium layer: depth, light, motion (loaded after style.css and store.css) ═════════ */
 
 :root {
-  --gold-grad: linear-gradient(100deg, #f1e3bd 0%, #d9be82 38%, #b08d57 68%, #8a6a3a 100%);
-  --glass: rgba(11, 15, 13, 0.55);
+  --gold-grad: linear-gradient(100deg, #a8793a 0%, #8f6528 55%, #6f4f20 100%);
+  --glass: rgba(245, 242, 235, 0.72);
 }
 
 /* ── Scroll progress + cursor light ── */
@@ -133,7 +133,7 @@
   pointer-events: none;
   background:
     radial-gradient(40vmax 28vmax at 72% 62%, rgba(176, 141, 87, 0.16), transparent 70%),
-    radial-gradient(46vmax 34vmax at 8% 8%, rgba(62, 90, 63, 0.3), transparent 70%);
+    radial-gradient(46vmax 34vmax at 8% 8%, rgba(46, 90, 68, 0.14), transparent 70%);
 }
 .headline {
   letter-spacing: -0.03em;
@@ -142,7 +142,7 @@
   filter: drop-shadow(0 0 28px rgba(217, 190, 130, 0.25));
 }
 .eyebrow {
-  color: #d9c7a3;
+  color: #7a5f34;
   letter-spacing: 0.34em;
 }
 
@@ -152,7 +152,7 @@
   overflow: hidden;
   padding: 18px 0;
   border-block: 1px solid rgba(176, 141, 87, 0.28);
-  background: linear-gradient(90deg, #070a08, #101812 50%, #070a08);
+  background: var(--forest-deep);
   -webkit-mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
   mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
 }
@@ -173,7 +173,7 @@
   font-style: italic;
   font-size: clamp(20px, 2.4vw, 30px);
   letter-spacing: 0.04em;
-  color: #d9c7a3;
+  color: #e3c98f;
   white-space: nowrap;
 }
 .marquee__item i {
@@ -291,7 +291,7 @@
 }
 .card__quick {
   border: 1px solid rgba(217, 190, 130, 0.45);
-  background: rgba(11, 15, 13, 0.55);
+  background: rgba(244, 241, 234, 0.8);
   -webkit-backdrop-filter: blur(8px);
   backdrop-filter: blur(8px);
   transition: background-color 0.4s, color 0.4s, border-color 0.4s;
@@ -305,7 +305,7 @@
 /* ── Product page: framed gallery, sticky buy panel ── */
 .gallery__main {
   position: relative;
-  box-shadow: 0 40px 90px -40px rgba(0, 0, 0, 0.9), inset 0 0 0 1px rgba(176, 141, 87, 0.25);
+  box-shadow: 0 40px 90px -40px rgba(34, 34, 34, 0.18), inset 0 0 0 1px rgba(176, 141, 87, 0.25);
 }
 .gallery__main::before,
 .gallery__main::after {
@@ -315,7 +315,7 @@
   width: 26px;
   height: 26px;
   pointer-events: none;
-  border: 1px solid #d9be82;
+  border: 1px solid #8a6a3a;
 }
 .gallery__main::before {
   top: 10px;
@@ -350,8 +350,8 @@
   -webkit-text-fill-color: transparent;
 }
 .size-opt input:checked + span {
-  background: var(--gold-grad);
-  color: #14110b;
+  background: var(--forest);
+  color: #ffffff;
   border-color: transparent;
 }
 
@@ -359,8 +359,8 @@
 .how__no {
   font-family: var(--serif);
   font-style: italic;
-  color: #d9be82;
-  text-shadow: 0 0 24px rgba(217, 190, 130, 0.45);
+  color: #7a5f34;
+  text-shadow: none;
 }
 .how__steps li {
   border-top: 1px solid rgba(176, 141, 87, 0.35);
@@ -443,10 +443,10 @@
 
 /* ── Details that make it feel finished ── */
 .toast {
-  background: rgba(11, 15, 13, 0.88);
-  color: #efe6d2;
+  background: var(--forest-deep);
+  color: var(--cream);
   border: 1px solid rgba(217, 190, 130, 0.55);
-  box-shadow: 0 18px 50px -14px rgba(0, 0, 0, 0.9), 0 0 30px -8px rgba(176, 141, 87, 0.45);
+  box-shadow: 0 18px 50px -14px rgba(34, 34, 34, 0.18), 0 0 30px -8px rgba(176, 141, 87, 0.45);
   -webkit-backdrop-filter: blur(14px);
   backdrop-filter: blur(14px);
   letter-spacing: 0.02em;
@@ -465,7 +465,7 @@
 .field textarea:focus,
 .field select:focus,
 .inline-field input:focus {
-  border-color: #d9be82;
+  border-color: #7a5f34;
   box-shadow: 0 0 0 3px rgba(217, 190, 130, 0.16), 0 10px 30px -14px rgba(176, 141, 87, 0.6);
   outline: none;
 }
@@ -474,13 +474,13 @@
 .account .account-section,
 .checkout .form-section {
   padding: clamp(18px, 3vw, 30px);
-  border: 1px solid rgba(176, 141, 87, 0.22);
-  background: linear-gradient(160deg, rgba(31, 42, 31, 0.45), rgba(11, 15, 13, 0.6));
-  box-shadow: 0 30px 70px -40px rgba(0, 0, 0, 0.9), inset 0 1px 0 rgba(255, 244, 214, 0.05);
+  border: 1px solid #d8d2c4;
+  background: #ffffff;
+  box-shadow: 0 30px 70px -40px rgba(34, 34, 34, 0.18), inset 0 1px 0 rgba(255, 244, 214, 0.05);
 }
 .account-nav a[aria-current="page"] {
-  color: #d9c7a3;
-  border-bottom: 1px solid #d9be82;
+  color: #7a5f34;
+  border-bottom: 1px solid #8a6a3a;
 }
 .notice {
   border-color: rgba(217, 190, 130, 0.35);
@@ -488,22 +488,22 @@
 }
 .tag {
   border-color: rgba(176, 141, 87, 0.4);
-  color: #d9c7a3;
+  color: #7a5f34;
 }
 /* Quiet, thin scrollbars in the brand colours */
 html {
-  scrollbar-color: #5b4a2c #0b0f0d;
+  scrollbar-color: #bdb6a5 #f4f1ea;
   scrollbar-width: thin;
 }
 ::-webkit-scrollbar {
   width: 10px;
 }
 ::-webkit-scrollbar-track {
-  background: #0b0f0d;
+  background: #f4f1ea;
 }
 ::-webkit-scrollbar-thumb {
-  background: linear-gradient(#8a6a3a, #5b4a2c);
-  border: 2px solid #0b0f0d;
+  background: linear-gradient(#bdb6a5, #a8a08c);
+  border: 2px solid #f4f1ea;
   border-radius: 8px;
 }
 
