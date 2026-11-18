@@ -9,7 +9,7 @@
     "sync-shared": "node scripts/sync-shared.mjs"
   },
   "dependencies": {
-    "firebase-admin": "14.5.0",
+    "firebase-admin": "14.5.1",
     "sharp": "0.35.5",
     "zod": "4.6.7"
   }
