@@ -27,3 +27,18 @@ functions/shared
 # browser-test build and output
 dist-e2e
 e2e-output
+
+# local demo catalogue run output
+demo-catalog/.local-login.txt
+demo-catalog/fail-*.png
+demo-catalog/last-run.json
+demo-catalog/*.tmp.*
+
+# local demo catalogue run output
+demo-catalog/.local-login.txt
+demo-catalog/fail-*.png
+demo-catalog/last-run.json
+demo-catalog/*.tmp.*
+demo-catalog/images/
+demo-catalog/screenshots/
+demo-catalog/verification.json

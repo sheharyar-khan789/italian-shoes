@@ -1,0 +1,515 @@
+{
+ "_note": "Demo catalogue. sellPKR is an ESTIMATED demo price; refPrice is a researched reference (often in another currency), see each note. Photos: see image-sources.json.",
+ "products": [
+  {
+   "slug": "nike-air-force-1-07",
+   "name": "Nike Air Force 1 '07",
+   "brand": "Nike",
+   "category": "Men's Sneakers",
+   "sku": "DEMO-NIK-01",
+   "colorName": "White",
+   "colorHex": "#f4f4f2",
+   "sizes": [
+    "41",
+    "42",
+    "43",
+    "44"
+   ],
+   "stockPerSize": 3,
+   "description": "Low-top sneaker with a leather upper and Nike Air cushioning in the sole, shown in all white. A basketball-heritage style from 1982. Demonstration product for testing this store: not a real offer. The brand name only identifies the model shown; this store is not affiliated with or authorised by Nike.",
+   "sellPKR": 32000,
+   "refPrice": {
+    "amount": 115,
+    "currency": "USD",
+    "kind": "official",
+    "sourceUrl": "https://www.nike.com/w/mens-air-force-1-shoes-5sj3yznik1zy7ok",
+    "note": "Reference = list price on the brand's US site as seen in search results. The PKR price is an ESTIMATED demo price (about Rs 280 per US dollar, rounded), not a Pakistani retail price."
+   },
+   "featured": true,
+   "isNewArrival": false,
+   "image": {
+    "title": "File:Nike air Force 1 white on white.jpg"
+   }
+  },
+  {
+   "slug": "air-jordan-1",
+   "name": "Air Jordan 1 High",
+   "brand": "Nike",
+   "category": "Men's Sneakers",
+   "sku": "DEMO-NIK-02",
+   "colorName": "White / Red / Black",
+   "colorHex": "#b3202a",
+   "sizes": [
+    "41",
+    "42",
+    "43",
+    "44"
+   ],
+   "stockPerSize": 3,
+   "description": "High-top leather sneaker in a white, red and black colourway with the Air Jordan wings logo on the collar and a Nike swoosh on the side. Demonstration product for testing this store: not a real offer. The brand name only identifies the model shown; this store is not affiliated with or authorised by Nike.",
+   "sellPKR": 52000,
+   "refPrice": {
+    "amount": 185,
+    "currency": "USD",
+    "kind": "official",
+    "sourceUrl": "https://www.nike.com/t/air-jordan-1-retro-high-og-womens-shoes-p9471nPP",
+    "note": "Reference = list price on the brand's US site as seen in search results. The PKR price is an ESTIMATED demo price (about Rs 280 per US dollar, rounded), not a Pakistani retail price. Reference is the Air Jordan 1 Retro High OG list price."
+   },
+   "featured": false,
+   "isNewArrival": false,
+   "image": {
+    "title": "File:Nike Air Jordan I.jpg"
+   }
+  },
+  {
+   "slug": "air-jordan-4",
+   "name": "Air Jordan 4",
+   "brand": "Nike",
+   "category": "Men's Sneakers",
+   "sku": "DEMO-NIK-03",
+   "colorName": "White / Cement Grey",
+   "colorHex": "#cfd0d2",
+   "sizes": [
+    "41",
+    "42",
+    "43",
+    "44"
+   ],
+   "stockPerSize": 3,
+   "description": "Mid-cut sneaker in white with grey speckled accents, mesh side panels and a visible Air unit in the heel. Demonstration product for testing this store: not a real offer. The brand name only identifies the model shown; this store is not affiliated with or authorised by Nike.",
+   "sellPKR": 61500,
+   "refPrice": {
+    "amount": 220,
+    "currency": "USD",
+    "kind": "official",
+    "sourceUrl": "https://www.nike.com/t/air-jordan-4-retro-mens-shoes-OpWLafSW",
+    "note": "Reference = list price on the brand's US site as seen in search results. The PKR price is an ESTIMATED demo price (about Rs 280 per US dollar, rounded), not a Pakistani retail price. Reference is the Air Jordan 4 Retro list price."
+   },
+   "featured": true,
+   "isNewArrival": false,
+   "image": {
+    "title": "File:Nike Air Jordan IV.jpg"
+   }
+  },
+  {
+   "slug": "nike-dunk-low",
+   "name": "Nike Dunk Low",
+   "brand": "Nike",
+   "category": "Men's Sneakers",
+   "sku": "DEMO-NIK-04",
+   "colorName": "Grey / Red",
+   "colorHex": "#b0242c",
+   "sizes": [
+    "41",
+    "42",
+    "43",
+    "44"
+   ],
+   "stockPerSize": 3,
+   "description": "Low-top leather sneaker in grey and red with a white midsole. The Dunk was first introduced as a basketball shoe in the 1980s. Demonstration product for testing this store: not a real offer. The brand name only identifies the model shown; this store is not affiliated with or authorised by Nike.",
+   "sellPKR": 33500,
+   "refPrice": {
+    "amount": 120,
+    "currency": "USD",
+    "kind": "official",
+    "sourceUrl": "https://www.nike.com/t/dunk-low-retro-mens-shoes-5FQWGR",
+    "note": "Reference = list price on the brand's US site as seen in search results. The PKR price is an ESTIMATED demo price (about Rs 280 per US dollar, rounded), not a Pakistani retail price. Nike lists Dunk Low Retro at about $115-120."
+   },
+   "featured": false,
+   "isNewArrival": true,
+   "image": {
+    "title": "File:Nike dunk.jpg"
+   }
+  },
+  {
+   "slug": "converse-chuck-taylor-all-star-classic-black",
+   "name": "Converse Chuck Taylor All Star High Top",
+   "brand": "Converse",
+   "category": "Men's Sneakers",
+   "sku": "DEMO-CON-05",
+   "colorName": "Black",
+   "colorHex": "#1a1a1a",
+   "sizes": [
+    "41",
+    "42",
+    "43",
+    "44"
+   ],
+   "stockPerSize": 3,
+   "description": "Classic canvas high-top in black with white laces, the All Star ankle patch and a white rubber toe cap and midsole. Demonstration product for testing this store: not a real offer. The brand name only identifies the model shown; this store is not affiliated with or authorised by Converse.",
+   "sellPKR": 18000,
+   "refPrice": {
+    "amount": 65,
+    "currency": "USD",
+    "kind": "official",
+    "sourceUrl": "https://www.converse.com/shop/p/chuck-taylor-all-star-canvas-unisex-high-top-shoe/M9006MP.html",
+    "note": "Reference = list price on the brand's US site as seen in search results. The PKR price is an ESTIMATED demo price (about Rs 280 per US dollar, rounded), not a Pakistani retail price."
+   },
+   "featured": false,
+   "isNewArrival": false,
+   "image": {
+    "pageUrl": "https://www.converse.com/shop/p/chuck-taylor-all-star-canvas-unisex-high-top-shoe/M9006MP.html"
+   }
+  },
+  {
+   "slug": "converse-chuck-taylor-all-star-leather",
+   "name": "Converse Chuck Taylor All Star Leather High Top",
+   "brand": "Converse",
+   "category": "Men's Sneakers",
+   "sku": "DEMO-CON-06",
+   "colorName": "Triple Black",
+   "colorHex": "#0f0f0f",
+   "sizes": [
+    "41",
+    "42",
+    "43",
+    "44"
+   ],
+   "stockPerSize": 3,
+   "description": "High-top with a leather upper in all black, black laces and a black rubber sole. Demonstration product for testing this store: not a real offer. The brand name only identifies the model shown; this store is not affiliated with or authorised by Converse.",
+   "sellPKR": 19500,
+   "refPrice": {
+    "amount": 70,
+    "currency": "USD",
+    "kind": "official",
+    "sourceUrl": "https://www.converse.com/shop/p/chuck-taylor-all-star-leather-unisex-high-top-shoe/135251MP.html",
+    "note": "Reference = list price on the brand's US site as seen in search results. The PKR price is an ESTIMATED demo price (about Rs 280 per US dollar, rounded), not a Pakistani retail price."
+   },
+   "featured": false,
+   "isNewArrival": false,
+   "image": {
+    "pageUrl": "https://www.converse.com/shop/p/chuck-taylor-all-star-leather-unisex-high-top-shoe/135251MP.html"
+   }
+  },
+  {
+   "slug": "reebok-glide-ripple-clip",
+   "name": "Reebok Glide Ripple Clip",
+   "brand": "Reebok",
+   "category": "Men's Sneakers",
+   "sku": "DEMO-REE-07",
+   "colorName": "Black",
+   "colorHex": "#1a1a1a",
+   "sizes": [
+    "41",
+    "42",
+    "43",
+    "44"
+   ],
+   "stockPerSize": 3,
+   "description": "Retro-inspired low-top trainer in black with a leather-look upper and a ripple-pattern rubber outsole. Demonstration product for testing this store: not a real offer. The brand name only identifies the model shown; this store is not affiliated with or authorised by Reebok.",
+   "sellPKR": 18500,
+   "refPrice": {
+    "amount": 60.95,
+    "currency": "EUR",
+    "kind": "retailer",
+    "sourceUrl": "https://runforest.com/en-ie/products/reebok-reebok-royal-glide-ripple-clip-ftwwht-vecnav-pugry4",
+    "note": "Reference = a retailer's regular price in euros (not Reebok's own price). The PKR price is an ESTIMATED demo price (about Rs 305 per euro, rounded), not a Pakistani retail price."
+   },
+   "featured": false,
+   "isNewArrival": false,
+   "image": {
+    "pageUrl": "https://www.reebok.eu/sv-se/products/reebok-glide-ripple-clip-unisex-sneaker-100010340-1077"
+   }
+  },
+  {
+   "slug": "asics-gel-cumulus-22",
+   "name": "ASICS Gel-Cumulus 22",
+   "brand": "ASICS",
+   "category": "Running Shoes",
+   "sku": "DEMO-ASI-08",
+   "colorName": "Graphite / Lime",
+   "colorHex": "#4a5058",
+   "sizes": [
+    "41",
+    "42",
+    "43",
+    "44"
+   ],
+   "stockPerSize": 3,
+   "description": "Neutral road-running shoe with a mesh upper and GEL cushioning in the heel, shown in graphite grey with lime accents. Demonstration product for testing this store: not a real offer. The brand name only identifies the model shown; this store is not affiliated with or authorised by ASICS.",
+   "sellPKR": 33500,
+   "refPrice": {
+    "amount": 120,
+    "currency": "USD",
+    "kind": "official",
+    "sourceUrl": "https://www.asics.com/us/en-us/gel-cumulus-22/p/ANA_1011A862-020.html",
+    "note": "Reference = list price on the brand's US site as seen in search results. The PKR price is an ESTIMATED demo price (about Rs 280 per US dollar, rounded), not a Pakistani retail price. ASICS US shows $120 as the original price."
+   },
+   "featured": false,
+   "isNewArrival": false,
+   "image": {
+    "pageUrl": "https://www.asics.com/us/en-us/gel-cumulus-22/p/ANA_1011A862-020.html"
+   }
+  },
+  {
+   "slug": "converse-chuck-taylor-all-star-womens",
+   "name": "Converse Chuck Taylor All Star High Top (Women's)",
+   "brand": "Converse",
+   "category": "Women's Shoes",
+   "sku": "DEMO-CON-09",
+   "colorName": "Black / Cream",
+   "colorHex": "#2a2622",
+   "sizes": [
+    "37",
+    "38",
+    "39",
+    "40"
+   ],
+   "stockPerSize": 3,
+   "description": "Women's canvas high-top in black with cream laces and midsole, a red heel tab and soft pink detailing. Demonstration product for testing this store: not a real offer. The brand name only identifies the model shown; this store is not affiliated with or authorised by Converse.",
+   "sellPKR": 19500,
+   "refPrice": {
+    "amount": 70,
+    "currency": "USD",
+    "kind": "indicative",
+    "sourceUrl": "https://www.converse.com/shop/p/chuck-taylor-all-star-womens-high-top-shoe/A07118MP.html",
+    "note": "Reference = list price on the brand's US site as seen in search results. The PKR price is an ESTIMATED demo price (about Rs 280 per US dollar, rounded), not a Pakistani retail price. The exact price was not confirmed; Converse Chuck Taylor high tops were seen at $65-$70."
+   },
+   "featured": false,
+   "isNewArrival": false,
+   "image": {
+    "pageUrl": "https://www.converse.com/shop/p/chuck-taylor-all-star-womens-high-top-shoe/A07118MP.html"
+   }
+  },
+  {
+   "slug": "converse-chuck-taylor-all-star-lift-platform-womens",
+   "name": "Converse Chuck Taylor All Star Lift Platform (Women's)",
+   "brand": "Converse",
+   "category": "Women's Shoes",
+   "sku": "DEMO-CON-10",
+   "colorName": "Black / White",
+   "colorHex": "#222222",
+   "sizes": [
+    "37",
+    "38",
+    "39",
+    "40"
+   ],
+   "stockPerSize": 3,
+   "description": "Canvas high-top on a raised platform sole, in black with white laces and a white rubber toe cap. Demonstration product for testing this store: not a real offer. The brand name only identifies the model shown; this store is not affiliated with or authorised by Converse.",
+   "sellPKR": 22500,
+   "refPrice": {
+    "amount": 80,
+    "currency": "USD",
+    "kind": "official",
+    "sourceUrl": "https://www.converse.com/shop/p/chuck-taylor-all-star-lift-platform-canvas-womens-high-top-shoe/560845MP.html",
+    "note": "Reference = list price on the brand's US site as seen in search results. The PKR price is an ESTIMATED demo price (about Rs 280 per US dollar, rounded), not a Pakistani retail price."
+   },
+   "featured": true,
+   "isNewArrival": false,
+   "image": {
+    "pageUrl": "https://www.converse.com/shop/p/chuck-taylor-all-star-lift-platform-canvas-womens-high-top-shoe/560845MP.html"
+   }
+  },
+  {
+   "slug": "converse-chuck-taylor-all-star-lift-leather-womens",
+   "name": "Converse Chuck Taylor All Star Lift Platform Leather Low Top (Women's)",
+   "brand": "Converse",
+   "category": "Women's Shoes",
+   "sku": "DEMO-CON-11",
+   "colorName": "White",
+   "colorHex": "#f4f4f2",
+   "sizes": [
+    "37",
+    "38",
+    "39",
+    "40"
+   ],
+   "stockPerSize": 3,
+   "description": "Low-top leather sneaker with a double-stacked platform sole, in white with a black stripe. Demonstration product for testing this store: not a real offer. The brand name only identifies the model shown; this store is not affiliated with or authorised by Converse.",
+   "sellPKR": 22500,
+   "refPrice": {
+    "amount": 80,
+    "currency": "USD",
+    "kind": "official",
+    "sourceUrl": "https://www.converse.com/shop/p/chuck-taylor-all-star-lift-platform-leather-womens-low-top-shoe/561681MP.html",
+    "note": "Reference = list price on the brand's US site as seen in search results. The PKR price is an ESTIMATED demo price (about Rs 280 per US dollar, rounded), not a Pakistani retail price."
+   },
+   "featured": false,
+   "isNewArrival": false,
+   "image": {
+    "pageUrl": "https://www.converse.com/shop/p/chuck-taylor-all-star-lift-platform-leather-womens-low-top-shoe/561681MP.html"
+   }
+  },
+  {
+   "slug": "asics-gel-kayano-26-womens",
+   "name": "ASICS Gel-Kayano 26 (Women's)",
+   "brand": "ASICS",
+   "category": "Women's Shoes",
+   "sku": "DEMO-ASI-12",
+   "colorName": "Black / White",
+   "colorHex": "#262626",
+   "sizes": [
+    "37",
+    "38",
+    "39",
+    "40"
+   ],
+   "stockPerSize": 3,
+   "description": "Stability running shoe with GEL cushioning and a FlyteFoam midsole, in black and white. Demonstration product for testing this store: not a real offer. The brand name only identifies the model shown; this store is not affiliated with or authorised by ASICS.",
+   "sellPKR": 45000,
+   "refPrice": {
+    "amount": 160,
+    "currency": "USD",
+    "kind": "official",
+    "sourceUrl": "https://www.asics.com/us/en-us/gel-kayano-26/p/ANA_1012A457-001.html",
+    "note": "Reference = list price on the brand's US site as seen in search results. The PKR price is an ESTIMATED demo price (about Rs 280 per US dollar, rounded), not a Pakistani retail price. ASICS US listed $160 as the original price of this earlier model."
+   },
+   "featured": true,
+   "isNewArrival": false,
+   "image": {
+    "pageUrl": "https://www.asics.com/us/en-us/gel-kayano-26/p/ANA_1012A457-001.html"
+   }
+  },
+  {
+   "slug": "asics-gel-nimbus-28-womens",
+   "name": "ASICS Gel-Nimbus 28 (Women's)",
+   "brand": "ASICS",
+   "category": "Women's Shoes",
+   "sku": "DEMO-ASI-13",
+   "colorName": "Pale Pink",
+   "colorHex": "#f0cfc2",
+   "sizes": [
+    "37",
+    "38",
+    "39",
+    "40"
+   ],
+   "stockPerSize": 3,
+   "description": "Cushioned neutral running shoe with a thick foam midsole and a breathable upper, shown in pale pink. Demonstration product for testing this store: not a real offer. The brand name only identifies the model shown; this store is not affiliated with or authorised by ASICS.",
+   "sellPKR": 47500,
+   "refPrice": {
+    "amount": 170,
+    "currency": "USD",
+    "kind": "official",
+    "sourceUrl": "https://www.asics.com/us/en-us/gel-nimbus-28/p/ANA_1012B899-700.html",
+    "note": "Reference = list price on the brand's US site as seen in search results. The PKR price is an ESTIMATED demo price (about Rs 280 per US dollar, rounded), not a Pakistani retail price. ASICS US lists $170 as the original price."
+   },
+   "featured": false,
+   "isNewArrival": true,
+   "image": {
+    "pageUrl": "https://www.asics.com/us/en-us/gel-nimbus-28/p/ANA_1012B899-700.html"
+   }
+  },
+  {
+   "slug": "air-jordan-4-retro-shes-a-star-big-kids",
+   "name": "Air Jordan 4 Retro \"She's A Star\" (Big Kids)",
+   "brand": "Nike",
+   "category": "Kids' Shoes",
+   "sku": "DEMO-NIK-14",
+   "colorName": "Rose Pink",
+   "colorHex": "#b2305f",
+   "sizes": [
+    "30",
+    "31",
+    "32",
+    "33"
+   ],
+   "stockPerSize": 3,
+   "description": "Big-kids' version of the Air Jordan 4 in rose pink with black speckled panels, blue accents and a visible Air unit in the heel. Demonstration product for testing this store: not a real offer. The brand name only identifies the model shown; this store is not affiliated with or authorised by Nike.",
+   "sellPKR": 46000,
+   "refPrice": {
+    "amount": 165,
+    "currency": "USD",
+    "kind": "official",
+    "sourceUrl": "https://www.nike.com/t/air-jordan-4-retro-shes-a-star-big-kids-shoes-g0maqmm7/IO2829-600",
+    "note": "Reference = list price on the brand's US site as seen in search results. The PKR price is an ESTIMATED demo price (about Rs 280 per US dollar, rounded), not a Pakistani retail price."
+   },
+   "featured": false,
+   "isNewArrival": false,
+   "image": {
+    "pageUrl": "https://www.nike.com/t/air-jordan-4-retro-shes-a-star-big-kids-shoes-g0maqmm7/IO2829-600"
+   }
+  },
+  {
+   "slug": "converse-chuck-taylor-all-star-little-kids",
+   "name": "Converse Chuck Taylor All Star High Top (Little Kids)",
+   "brand": "Converse",
+   "category": "Kids' Shoes",
+   "sku": "DEMO-CON-15",
+   "colorName": "Triple Black",
+   "colorHex": "#0f0f0f",
+   "sizes": [
+    "30",
+    "31",
+    "32",
+    "33"
+   ],
+   "stockPerSize": 3,
+   "description": "Little-kids' canvas high-top in all black with black laces and the All Star ankle patch. Demonstration product for testing this store: not a real offer. The brand name only identifies the model shown; this store is not affiliated with or authorised by Converse.",
+   "sellPKR": 11000,
+   "refPrice": {
+    "amount": 40,
+    "currency": "USD",
+    "kind": "official",
+    "sourceUrl": "https://www.converse.com/shop/p/chuck-taylor-all-star-canvas-little-kids-high-top-shoe/3S121_115.html",
+    "note": "Reference = list price on the brand's US site as seen in search results. The PKR price is an ESTIMATED demo price (about Rs 280 per US dollar, rounded), not a Pakistani retail price."
+   },
+   "featured": true,
+   "isNewArrival": false,
+   "image": {
+    "pageUrl": "https://www.converse.com/shop/p/chuck-taylor-all-star-canvas-little-kids-high-top-shoe/3S121_115.html"
+   }
+  },
+  {
+   "slug": "converse-chuck-taylor-all-star-easy-on-little-kids",
+   "name": "Converse Chuck Taylor All Star Easy-On (Little Kids)",
+   "brand": "Converse",
+   "category": "Kids' Shoes",
+   "sku": "DEMO-CON-16",
+   "colorName": "White",
+   "colorHex": "#f4f4f2",
+   "sizes": [
+    "30",
+    "31",
+    "32",
+    "33"
+   ],
+   "stockPerSize": 3,
+   "description": "Little-kids' white canvas high-top with an easy-on strap instead of laces, with red and navy stripe detail. Demonstration product for testing this store: not a real offer. The brand name only identifies the model shown; this store is not affiliated with or authorised by Converse.",
+   "sellPKR": 13000,
+   "refPrice": {
+    "amount": 47,
+    "currency": "USD",
+    "kind": "official",
+    "sourceUrl": "https://www.converse.com/shop/p/chuck-taylor-all-star-easy-on-little-kids-high-top-shoe/372884F_020.html",
+    "note": "Reference = list price on the brand's US site as seen in search results. The PKR price is an ESTIMATED demo price (about Rs 280 per US dollar, rounded), not a Pakistani retail price."
+   },
+   "featured": false,
+   "isNewArrival": false,
+   "image": {
+    "pageUrl": "https://www.converse.com/shop/p/chuck-taylor-all-star-easy-on-little-kids-high-top-shoe/372884F_020.html"
+   }
+  },
+  {
+   "slug": "asics-gel-noosa-tri-16-grade-school",
+   "name": "ASICS Gel-Noosa Tri 16 (Grade School)",
+   "brand": "ASICS",
+   "category": "Kids' Shoes",
+   "sku": "DEMO-ASI-17",
+   "colorName": "Blue / Purple",
+   "colorHex": "#4a56c4",
+   "sizes": [
+    "30",
+    "31",
+    "32",
+    "33"
+   ],
+   "stockPerSize": 3,
+   "description": "Grade-school running shoe with a mesh upper and a colourful blue, purple and orange design. Demonstration product for testing this store: not a real offer. The brand name only identifies the model shown; this store is not affiliated with or authorised by ASICS.",
+   "sellPKR": 19500,
+   "refPrice": {
+    "amount": 70,
+    "currency": "USD",
+    "kind": "official",
+    "sourceUrl": "https://www.asics.com/us/en-us/gel-noosa-tri-16-grade-school/p/ANA_1014A346-400.html",
+    "note": "Reference = list price on the brand's US site as seen in search results. The PKR price is an ESTIMATED demo price (about Rs 280 per US dollar, rounded), not a Pakistani retail price."
+   },
+   "featured": false,
+   "isNewArrival": true,
+   "image": {
+    "pageUrl": "https://www.asics.com/us/en-us/gel-noosa-tri-16-grade-school/p/ANA_1014A346-400.html"
+   }
+  }
+ ]
+}

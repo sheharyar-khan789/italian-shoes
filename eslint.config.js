@@ -24,5 +24,5 @@ export default [
     languageOptions: { globals: globals.node },
   },
   // Browser tests run page code inside the browser (page.evaluate / waitForFunction), so both sets of globals apply.
-  { files: ["tests/e2e/**/*.js", "tests/e2e/**/*.mjs"], languageOptions: { globals: { ...globals.node, ...globals.browser } } },
+  { files: ["tests/e2e/**/*.js", "tests/e2e/**/*.mjs", "demo-catalog/**/*.mjs"], languageOptions: { globals: { ...globals.node, ...globals.browser } } },
 ];
