@@ -90,7 +90,7 @@ function mountApi(server, load) {
 }
 
 /** The browser tests talk to the local emulators, which the production policy (rightly) does not allow. Used only in mode "e2e". */
-const e2eHeaders = { ...securityHeaders, "Content-Security-Policy": securityHeaders["Content-Security-Policy"].replace("connect-src 'self'", "connect-src 'self' http://127.0.0.1:* http://localhost:* ws://127.0.0.1:* ws://localhost:*") };
+const e2eHeaders = { ...securityHeaders, "Content-Security-Policy": securityHeaders["Content-Security-Policy"].replace("connect-src 'self'", "connect-src 'self' http://127.0.0.1:* http://localhost:* ws://127.0.0.1:* ws://localhost:*").replace("img-src 'self'", "img-src 'self' http://127.0.0.1:* http://localhost:*") };
 
 export default defineConfig(({ mode }) => ({
   plugins: mode === "e2e" ? [adminRoute, apiDev, apiPreview] : [adminRoute, apiDev],

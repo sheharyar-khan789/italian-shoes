@@ -12,6 +12,20 @@ import { reloadWhenUpdated } from "../app/updateReload.js";
 
 reloadWhenUpdated();
 
+// A product photo that fails to load (broken address, file removed at the source) shows a plain grey placeholder, not a broken-image icon.
+const NO_PHOTO = "data:image/svg+xml," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80"><rect width="80" height="80" fill="#ece6d8"/><path d="M16 52c8-2 12-10 18-14 6 6 12 8 30 10v6H16z" fill="#bfb49b"/></svg>');
+document.addEventListener(
+  "error",
+  (e) => {
+    const img = e.target;
+    if (img instanceof HTMLImageElement && img.matches(".adm-thumb, .adm-photo img") && !img.dataset.failed) {
+      img.dataset.failed = "1";
+      img.src = NO_PHOTO;
+    }
+  },
+  true,
+);
+
 // Offline shell: lets the till reload while the internet is down (see scripts/sw.template.js). Production builds only.
 if ("serviceWorker" in navigator && import.meta.env.PROD) {
   const register = () => navigator.serviceWorker.register("/sw.js").catch(() => {});

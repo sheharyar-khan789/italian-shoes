@@ -23,6 +23,7 @@ import { writeAudit } from "../lib/audit.js";
 import { markCatalogDirty } from "./catalogSnapshot.js";
 import { hasPermission, assertSessionStillValid } from "../lib/callable.js";
 import { consumeRateLimit } from "../lib/rateLimit.js";
+import { removeCloudinaryFile } from "./cloudinary.js";
 import { IMAGE_UPLOAD } from "../shared/schemas/catalog.js";
 import { RECEIPT_UPLOAD } from "../shared/finance.js";
 
@@ -251,7 +252,8 @@ export async function imageAction(input, actorUid) {
     markCatalogDirty(tx);
     writeAudit({ actorUid, action: `product.image_${input.action}`, entityType: "product", entityId: input.productId, changes: { imageId: input.imageId ?? null } }, tx);
   });
-  if (removed) await blobIO.del(Object.values(removed.paths)).catch((error) => log.warn("Couldn't delete photo files", { error }));
+  if (removed?.provider === "cloudinary") await removeCloudinaryFile(removed.publicId);
+  else if (removed) await blobIO.del(Object.values(removed.paths)).catch((error) => log.warn("Couldn't delete photo files", { error }));
   return { ok: true };
 }
 

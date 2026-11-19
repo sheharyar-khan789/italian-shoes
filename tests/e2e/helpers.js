@@ -25,6 +25,7 @@ export async function newPage(browser, { viewport = { width: 1280, height: 800 }
     if (/favicon|ERR_INTERNET_DISCONNECTED|net::ERR_FAILED|fonts[.]g|cdn[.]jsdelivr|Failed to load resource/i.test(t)) return; // failed loads are reported with their address below
     problems.push(`console: ${t.slice(0, 200)}`);
   });
+  page.on("requestfailed", (r) => { if (r.resourceType() === "image") problems.push(`image failed: ${r.url().slice(0, 120)} (${r.failure()?.errorText})`); });
   page.on("response", (r) => {
     const u = r.url();
     if (r.status() >= 400 && u.startsWith(BASE) && !/favicon/.test(u)) problems.push(`${r.status()} ${u.replace(BASE, "")}`);

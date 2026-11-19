@@ -48,7 +48,10 @@ export function firebase() {
   return ready;
 }
 
-/** Public URL of a product photo: the full https address stored with the photo (Vercel Blob). */
+/** Public URL of a product photo: the full https address stored with the photo (Cloudinary or Vercel Blob).
+ *  Only on a developer's machine / the browser tests (emulators) is a local http address accepted too. */
 export function imageUrl(path) {
-  return String(path).startsWith("https://") ? path : "";
+  const p = String(path);
+  if (p.startsWith("https://")) return p;
+  return usingEmulators && /^http:[/][/](localhost|127[.]0[.]0[.]1)[:/]/.test(p) ? p : "";
 }

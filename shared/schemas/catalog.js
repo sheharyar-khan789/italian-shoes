@@ -147,3 +147,10 @@ export const deleteCatalogItemInput = z.object({ kind: z.enum(["category", "bran
 
 /** Accepted upload types and size (checked when the upload token is issued and again when the file is processed). */
 export const IMAGE_UPLOAD = { types: ["image/jpeg", "image/png", "image/webp"], maxBytes: 8 * 1024 * 1024, maxPerProduct: 12 };
+/** Product photos kept on Cloudinary: JPEG, PNG or WebP, up to 5 MB (the free plan allows more; we are stricter). */
+export const PRODUCT_PHOTO = { types: IMAGE_UPLOAD.types, maxBytes: 5 * 1024 * 1024 };
+export const cloudinarySignatureInput = z.object({ productId: docId });
+export const addCloudinaryImageInput = z.object({
+  productId: docId,
+  publicId: z.string().max(200).regex(/^shoe-store[/]products[/][A-Za-z0-9_-]{1,128}[/][A-Za-z0-9_-]{8,40}$/, "Invalid upload"),
+});

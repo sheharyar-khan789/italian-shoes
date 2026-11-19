@@ -27,6 +27,15 @@ if (args.includes("--rebuild") || !fs.existsSync(path.join(root, "dist-e2e", "sw
   if (b.status !== 0) process.exit(b.status ?? 1);
 }
 
+// A local stand-in for Cloudinary (tests/e2e/cloudinaryStandIn.mjs) so product-photo uploads can be tested in a real browser
+// without a real account. The app's server is pointed at it with the same variables a real account would use.
+const CDN_PORT = 5184;
+const cdnConfig = { cloudName: "e2e-cloud", apiKey: "100200300", apiSecret: "e2e-secret-" + Math.random().toString(36).slice(2), port: CDN_PORT };
+Object.assign(process.env, { CLOUDINARY_CLOUD_NAME: cdnConfig.cloudName, CLOUDINARY_API_KEY: cdnConfig.apiKey, CLOUDINARY_API_SECRET: cdnConfig.apiSecret, CLOUDINARY_API_BASE: `http://localhost:${CDN_PORT}`, CLOUDINARY_DELIVERY_BASE: `http://localhost:${CDN_PORT}` });
+const { startCloudinaryStandIn } = await import("../tests/e2e/cloudinaryStandIn.mjs");
+const cdn = await startCloudinaryStandIn(cdnConfig);
+process.on("exit", () => cdn.stop());
+
 const { seed } = await import("../tests/e2e/seed.mjs");
 const fx = await seed();
 console.log("Seeded: 3 people, 2 products, 1 shop warehouse (emulators only).");
@@ -60,10 +69,14 @@ if (!up) {
 
 const files = fs.readdirSync(path.join(root, "tests", "e2e")).filter((f) => f.endsWith(".e2e.js") && f.includes(grep)).map((f) => path.join("tests", "e2e", f));
 fs.mkdirSync(path.join(root, "e2e-output"), { recursive: true });
-const env = { ...process.env, E2E_BASE: BASE, E2E_FIXTURES: JSON.stringify(fx), E2E_OUT: path.join(root, "e2e-output") };
+const env = { ...process.env, E2E_BASE: BASE, E2E_FIXTURES: JSON.stringify(fx), E2E_OUT: path.join(root, "e2e-output"), E2E_CLOUDINARY: cdn.base };
 const load = args.includes("--load");
-const t = load
-  ? spawnSync(process.execPath, [path.join(root, "scripts", "loadtest.mjs")], { cwd: root, env, stdio: "inherit" })
-  : spawnSync(process.execPath, ["--test", "--test-concurrency=1", "--test-timeout=180000", ...files], { cwd: root, env, stdio: "inherit" });
+// Asynchronous on purpose: the Cloudinary stand-in lives in THIS process and must keep answering while the tests run.
+const child = load
+  ? spawn(process.execPath, [path.join(root, "scripts", "loadtest.mjs")], { cwd: root, env, stdio: "inherit" })
+  : spawn(process.execPath, ["--test", "--test-concurrency=1", `--test-timeout=${process.env.E2E_TIMEOUT ?? 180000}`, ...files], { cwd: root, env, stdio: "inherit" });
+const t = { status: await new Promise((resolve) => child.on("exit", (code) => resolve(code))) };
+if (t.status !== 0 && serverLog.trim()) console.error(["", "--- test server output (last 3000 characters) ---", serverLog.slice(-3000)].join(String.fromCharCode(10)));
 stop();
+cdn.stop();
 process.exit(t.status ?? 1);

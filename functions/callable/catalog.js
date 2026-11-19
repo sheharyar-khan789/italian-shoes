@@ -16,11 +16,14 @@ import {
   stockAdjustmentSchema,
   imageActionInput,
   addProductImageInput,
+  cloudinarySignatureInput,
+  addCloudinaryImageInput,
 } from "../shared/schemas/index.js";
 import * as catalog from "../services/catalog.js";
 import * as products from "../services/products.js";
 import * as inventory from "../services/inventory.js";
 import * as images from "../services/images.js";
+import * as cloudinary from "../services/cloudinary.js";
 
 const WRITE = { auth: /** @type {const} */ ("required"), permission: "products.write", rateLimit: { limit: 240, windowSeconds: 600 } };
 
@@ -43,6 +46,9 @@ export const createVariants = secureCallable("createVariants", { ...WRITE, schem
   products.createVariants(data, { actorUid: uid, canEditCost: hasPermission(token, "costs.read") }),
 );
 export const addProductImage = secureCallable("addProductImage", { ...WRITE, rateLimit: { limit: 120, windowSeconds: 600 }, schema: addProductImageInput }, ({ data, uid }) => images.addProductImage(data, uid));
+// Cloudinary photos: sign an upload, then verify and attach it (see services/cloudinary.js).
+export const cloudinarySignature = secureCallable("cloudinarySignature", { ...WRITE, rateLimit: { limit: 120, windowSeconds: 600 }, schema: cloudinarySignatureInput }, ({ data, uid }) => cloudinary.createUploadSignature(data, /** @type {string} */ (uid)));
+export const addCloudinaryImage = secureCallable("addCloudinaryImage", { ...WRITE, rateLimit: { limit: 120, windowSeconds: 600 }, schema: addCloudinaryImageInput }, ({ data, uid }) => cloudinary.addCloudinaryImage(data, /** @type {string} */ (uid)));
 export const productImageAction = secureCallable("productImageAction", { ...WRITE, schema: imageActionInput }, ({ data, uid }) => images.imageAction(data, uid));
 
 export const adjustStock = secureCallable(

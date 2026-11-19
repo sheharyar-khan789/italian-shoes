@@ -161,7 +161,7 @@ export async function photoStorageConnected() {
  * the server to check and process it. Resolves to { status: "done" | "rejected", reason? }.
  * @param {string} productId @param {File} file @param {string} _uid @param {(pct: number) => void} onProgress
  */
-export async function uploadProductImage(productId, file, _uid, onProgress) {
+async function uploadProductImageToBlob(productId, file, _uid, onProgress) {
   const { auth } = await firebase();
   const idToken = await auth.currentUser?.getIdToken();
   if (!idToken) return { status: "rejected", reason: "Please sign in again." };
@@ -179,6 +179,70 @@ export async function uploadProductImage(productId, file, _uid, onProgress) {
     return { status: "done" };
   } catch (error) {
     return { status: "rejected", reason: /** @type {Error} */ (error).message };
+  }
+}
+
+/** Product photos: JPEG, PNG or WebP, up to 5 MB (checked here for a quick, clear message and again on the server). */
+const PHOTO_TYPES = ["image/jpeg", "image/png", "image/webp"];
+const PHOTO_MAX = 5 * 1024 * 1024;
+
+/**
+ * POST the file to Cloudinary with the server-made signature, reporting progress. Resolves to Cloudinary's answer.
+ * @param {Record<string, any>} sig @param {File} file @param {(pct: number) => void} onProgress
+ */
+function postToCloudinary(sig, file, onProgress) {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", sig.uploadUrl);
+    xhr.upload.onprogress = (e) => e.lengthComputable && onProgress(Math.min(99, Math.round((e.loaded / e.total) * 100)));
+    xhr.onerror = () => reject(Object.assign(new Error("The upload failed. Check your connection and try again."), { network: true }));
+    xhr.ontimeout = xhr.onerror;
+    xhr.onload = () => {
+      let answer = null;
+      try {
+        answer = JSON.parse(xhr.responseText);
+      } catch {
+        /* not JSON */
+      }
+      if (xhr.status >= 200 && xhr.status < 300 && answer?.public_id) resolve(answer);
+      else reject(new Error(answer?.error?.message ? `Cloudinary refused the photo: ${answer.error.message}` : "Cloudinary refused the photo."));
+    };
+    const form = new FormData();
+    form.append("file", file);
+    form.append("api_key", sig.apiKey);
+    form.append("timestamp", String(sig.timestamp));
+    form.append("signature", sig.signature);
+    form.append("public_id", sig.publicId);
+    form.append("allowed_formats", sig.allowed_formats);
+    xhr.send(form);
+  });
+}
+
+/**
+ * Add one photo to a product. Uses Cloudinary when the server has it configured (signature, upload, then the server checks
+ * the file and attaches it); otherwise falls back to the Vercel Blob route. Resolves to { status: "done", imageId } or
+ * { status: "rejected", reason }: it does not throw for a problem the person can understand.
+ * @param {string} productId @param {File} file @param {string} uid @param {(pct: number) => void} onProgress
+ */
+export async function uploadProductImage(productId, file, uid, onProgress) {
+  if (!PHOTO_TYPES.includes(file.type)) return { status: "rejected", reason: "Use a JPEG, PNG or WebP photo." };
+  if (file.size > PHOTO_MAX) return { status: "rejected", reason: "The photo is larger than 5 MB." };
+  /** @type {Record<string, any>} */
+  let sig;
+  try {
+    sig = await callApi("cloudinarySignature", { productId });
+  } catch (error) {
+    const e = /** @type {any} */ (error);
+    if (e?.details?.notConfigured) return uploadProductImageToBlob(productId, file, uid, onProgress); // Cloudinary isn't set up: the existing route
+    return { status: "rejected", reason: e?.message ?? "Couldn't start the upload." };
+  }
+  try {
+    const sent = await postToCloudinary(sig, file, onProgress);
+    onProgress(100);
+    const r = await callApi("addCloudinaryImage", { productId, publicId: sent.public_id });
+    return { status: "done", imageId: r.imageId };
+  } catch (error) {
+    return { status: "rejected", reason: /** @type {Error} */ (error).message || "The photo couldn't be added." };
   }
 }
 

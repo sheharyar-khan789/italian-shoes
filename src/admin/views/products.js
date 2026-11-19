@@ -173,6 +173,11 @@ async function editor({ main, user, navigate }, id) {
               ${field({ name: "seoDescription", label: "Description", required: false, maxlength: 160, textarea: true, value: p.seoDescription }, "pd")}
             </details>
           </fieldset>
+          ${isNew && canWrite ? `<div class="field" data-field="photo"><label for="pd-photo">Photo <span class="muted">(optional — you can add more later)</span></label>
+            <input id="pd-photo" name="photo" type="file" accept="image/jpeg,image/png,image/webp" />
+            <div data-photo-preview></div>
+            <p class="field-hint">JPEG, PNG or WebP, up to 5 MB. It is uploaded when you save; if the upload fails, your product details are kept and you can add the photo on the next screen.</p>
+            <p class="field-error" hidden></p></div>` : ""}
           ${canWrite ? `<div class="form-actions"><button type="submit" class="btn btn--primary"><span>${isNew ? "Save and continue" : "Save details"}</span></button></div>` : ""}
         </form>
       </section>
@@ -183,8 +188,9 @@ async function editor({ main, user, navigate }, id) {
           : `<section class="adm-section adm-card" aria-labelledby="ph-title">
               <h2 class="adm-h2" id="ph-title">Photos <span class="muted">(${(p.images ?? []).length}/${IMAGE_UPLOAD.maxPerProduct})</span></h2>
               <div class="adm-photos" data-photos></div>
-              ${canWrite ? `<label class="btn btn--ghost adm-upload"><input type="file" accept="image/jpeg,image/png,image/webp" multiple data-upload /> <span>Add photos</span></label>
-              <p class="fine">JPEG, PNG or WebP, up to 8 MB, at least 300 × 300 pixels. Each photo is checked and resized automatically.</p>
+              ${canWrite ? `<input type="file" accept="image/jpeg,image/png,image/webp" data-replace hidden />
+              <label class="btn btn--ghost adm-upload"><input type="file" accept="image/jpeg,image/png,image/webp" multiple data-upload /> <span>Add photos</span></label>
+              <p class="fine">JPEG, PNG or WebP, up to 5 MB, at least 300 × 300 pixels. You see a preview first; every photo is checked again by the server before it is added.</p>
               <ul class="adm-uploads" data-upload-list aria-live="polite"></ul>` : ""}
             </section>
             <section class="adm-section adm-card" aria-labelledby="var-title">
@@ -201,6 +207,29 @@ async function editor({ main, user, navigate }, id) {
   const nameEl = /** @type {HTMLInputElement} */ (form.elements.namedItem("name"));
   const slugEl = /** @type {HTMLInputElement} */ (form.elements.namedItem("slug"));
   if (isNew) nameEl.addEventListener("input", () => (slugEl.value = slugify(nameEl.value)));
+  const photoEl = /** @type {HTMLInputElement | null} */ (form.elements.namedItem("photo"));
+  const photoBox = form.querySelector("[data-photo-preview]");
+  const photoErr = /** @type {HTMLElement} */ (form.querySelector('[data-field="photo"] .field-error'));
+  /** The photo chosen for a new product (null when none, or when it isn't acceptable). @type {File | null} */
+  let chosenPhoto = null;
+  photoEl?.addEventListener("change", () => {
+    chosenPhoto = null;
+    photoBox.innerHTML = "";
+    photoErr.hidden = true;
+    const file = photoEl.files?.[0];
+    if (!file) return;
+    const problem = !IMAGE_UPLOAD.types.includes(file.type) ? "Use a JPEG, PNG or WebP photo." : file.size > 5 * 1024 * 1024 ? "The photo is larger than 5 MB." : "";
+    if (problem) {
+      photoErr.textContent = problem;
+      photoErr.hidden = false;
+      photoEl.value = "";
+      return;
+    }
+    chosenPhoto = file;
+    const url = URL.createObjectURL(file); // preview only; the saved picture is the checked upload
+    photoBox.innerHTML = `<img class="adm-thumb" alt="Preview of the chosen photo" src="${url}" />`;
+    photoBox.querySelector("img").addEventListener("load", () => URL.revokeObjectURL(url), { once: true });
+  });
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
     const fd = new FormData(form);
@@ -221,14 +250,18 @@ async function editor({ main, user, navigate }, id) {
     if (!parsed.success) return showResult(form, { ok: false, message: "Please check the highlighted fields.", fields: fieldErrors(parsed.error) });
     const result = await busy(form, async () => {
       try {
-        return { ok: true, ...(await call("saveProduct", parsed.data)) };
+        const saved = await call("saveProduct", parsed.data);
+        // The button stays disabled until the photo (if any) has been tried too, so nothing can be submitted twice.
+        const photo = isNew && chosenPhoto ? await uploadProductImage(saved.id, chosenPhoto, user.uid, () => {}) : null;
+        return { ok: true, ...saved, photo };
       } catch (error) {
         return fnResult(error);
       }
     }, "Saving…");
     showResult(form, result);
     if (result.ok) {
-      toast("Saved.");
+      if (isNew && chosenPhoto && result.photo?.status !== "done") toast(`Product saved, but the photo wasn't added: ${result.photo?.reason ?? "the upload failed"}. Add it on this page.`, "error");
+      else toast(isNew && chosenPhoto ? "Saved, with its photo." : "Saved.");
       if (isNew) navigate(`/admin/products/${result.id}`);
     }
   });
@@ -281,6 +314,7 @@ async function editor({ main, user, navigate }, id) {
                        <span class="adm-photo__btns">
                          <button type="button" class="text-btn" data-img="left" ${i === 0 ? "disabled" : ""} aria-label="Move earlier">←</button>
                          <button type="button" class="text-btn" data-img="right" ${i === imgs.length - 1 ? "disabled" : ""} aria-label="Move later">→</button>
+                         <button type="button" class="text-btn" data-img="replace">Replace</button>
                          <button type="button" class="text-btn" data-img="delete">Delete</button>
                        </span>`
                     : ""
@@ -298,12 +332,47 @@ async function editor({ main, user, navigate }, id) {
   };
   drawPhotos();
 
+  /** The photo being replaced, while the person chooses the new file. @type {string | null} */
+  let replaceTarget = null;
+  const replaceInput = /** @type {HTMLInputElement | null} */ (main.querySelector("[data-replace]"));
+  replaceInput?.addEventListener("change", async () => {
+    const file = replaceInput.files?.[0];
+    replaceInput.value = "";
+    const oldId = replaceTarget;
+    replaceTarget = null;
+    if (!file || !oldId) return;
+    const old = (product.images ?? []).find((i) => i.id === oldId);
+    if (!old) return;
+    toast("Uploading the new photo…");
+    // The new photo is added FIRST; the old one is removed only after the new one is safely saved.
+    const added = await uploadProductImage(id, file, user.uid, () => {});
+    if (added.status !== "done" || !added.imageId) return toast(`The photo wasn't replaced: ${added.reason ?? "the upload failed"}. The old photo is unchanged.`, "error");
+    try {
+      await refreshProduct();
+      const order = product.images.map((i) => i.id).filter((x) => x !== added.imageId).map((x) => (x === oldId ? added.imageId : x));
+      order.push(oldId);
+      await call("productImageAction", { productId: id, action: "reorder", order: order.length === product.images.length ? order : product.images.map((i) => i.id) });
+      if (old.isPrimary) await call("productImageAction", { productId: id, action: "primary", imageId: added.imageId });
+      await call("productImageAction", { productId: id, action: "delete", imageId: oldId });
+      await refreshProduct();
+      toast("Photo replaced.");
+    } catch (error) {
+      await refreshProduct().catch(() => {});
+      toast(`The new photo was added, but the old one couldn't be removed: ${fnResult(error).message}`, "error");
+    }
+  });
+
   photos.addEventListener("click", async (e) => {
     const btn = /** @type {HTMLElement} */ (e.target).closest("[data-img]");
     if (!btn) return;
     const imageId = /** @type {HTMLElement} */ (btn.closest("[data-image]")).dataset.image;
     const act = /** @type {HTMLElement} */ (btn).dataset.img;
     try {
+      if (act === "replace") {
+        replaceTarget = imageId;
+        replaceInput?.click();
+        return;
+      }
       if (act === "delete") {
         if (!(await confirmDialog({ title: "Delete this photo?", confirm: "Delete", danger: true }))) return;
         await call("productImageAction", { productId: id, action: "delete", imageId });
@@ -339,21 +408,40 @@ async function editor({ main, user, navigate }, id) {
     uploadInput.value = "";
     for (const file of files) {
       const li = document.createElement("li");
-      li.textContent = `${file.name}: `;
+      // A local preview of the chosen file, shown while it uploads. It is never saved anywhere (the saved picture is the checked upload).
+      const preview = URL.createObjectURL(file);
+      const thumb = document.createElement("img");
+      thumb.className = "adm-thumb";
+      thumb.alt = "";
+      thumb.src = preview;
+      const label = document.createElement("span");
+      label.textContent = ` ${file.name}: `;
       const state = document.createElement("span");
-      li.append(state);
+      const bar = document.createElement("progress");
+      bar.max = 100;
+      bar.value = 0;
+      bar.hidden = true;
+      li.append(thumb, label, state, " ", bar);
       uploadList.append(li);
       // Same limits the server enforces, so obvious problems are explained before uploading.
       if (!IMAGE_UPLOAD.types.includes(file.type)) {
         state.textContent = "not added — use a JPEG, PNG or WebP photo.";
+        URL.revokeObjectURL(preview);
         continue;
       }
-      if (file.size > IMAGE_UPLOAD.maxBytes) {
-        state.textContent = "not added — the file is larger than 8 MB.";
+      if (file.size > 5 * 1024 * 1024) {
+        state.textContent = "not added — the file is larger than 5 MB.";
+        URL.revokeObjectURL(preview);
         continue;
       }
       try {
-        const result = await uploadProductImage(id, file, user.uid, (pct) => (state.textContent = pct < 100 ? `uploading ${pct}%` : "checking and resizing…"));
+        const result = await uploadProductImage(id, file, user.uid, (pct) => {
+          bar.hidden = false;
+          bar.value = pct;
+          state.textContent = pct < 100 ? `uploading ${pct}%` : "checking…";
+        });
+        bar.hidden = true;
+        URL.revokeObjectURL(preview);
         state.textContent = result.status === "done" ? "added ✓" : `not added — ${result.reason}`;
         if (result.status === "done") await refreshProduct();
       } catch {
